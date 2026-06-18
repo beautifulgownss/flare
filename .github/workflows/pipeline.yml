@@ -32,6 +32,8 @@ jobs:
           HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ALERT_EMAIL_SENDER: ${{ secrets.ALERT_EMAIL_SENDER }}
+          ALERT_EMAIL_PASSWORD: ${{ secrets.ALERT_EMAIL_PASSWORD }}
         run: python src/run_pipeline.py
 
       - name: Check score changes
