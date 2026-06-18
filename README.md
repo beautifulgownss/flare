@@ -1,14 +1,14 @@
 # GTM Enrichment Pipeline
 
-An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, and generates personalized outreach openers using an LLM — all outputted to a live React dashboard.
+An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, and produces full 3-step email sequences — all visualized in a live React dashboard.
 
-Built as Project 1 of a 4-part GTM engineering portfolio.
+Built as a 4-project GTM engineering portfolio.
 
 ---
 
 ## The problem
 
-Sales and marketing teams spend 30-45 minutes per account on manual research — finding the right contact, validating their email, assessing fit, and writing a personalized first line. At scale, that time kills pipeline velocity.
+Sales and marketing teams spend 30-45 minutes per account on manual research — finding the right contact, validating their email, assessing fit, and writing personalized outreach. At scale, that time kills pipeline velocity.
 
 This pipeline automates that entire workflow in seconds.
 
@@ -20,7 +20,8 @@ This pipeline automates that entire workflow in seconds.
 2. **Scores** each account 1-10 based on contact seniority and email discoverability signals
 3. **Prioritizes** accounts into High / Medium / Low buckets and selects the best contact per account
 4. **Generates** a personalized outreach opener for each high-priority account using an LLM
-5. **Visualizes** everything in a React dashboard with animated score meters and contact cards
+5. **Sequences** each account into a 3-step email sequence — intro, follow-up, and breakup — personalized to the contact and company context
+6. **Visualizes** everything in a React dashboard with two views: Account Prioritization and Email Sequences
 
 ---
 
@@ -33,7 +34,9 @@ src/enrich.py          → Hunter.io API → data/enriched/companies.json
         ↓
 src/score.py           → ICP scoring logic → data/enriched/scored_companies.json
         ↓
-src/personalize.py     → LLM personalization → data/enriched/personalized_companies.json
+src/personalize.py     → LLM contact selection + opener → data/enriched/personalized_companies.json
+        ↓
+src/sequence.py        → LLM 3-step email sequences → data/sequences/sequences.json
         ↓
 dashboard/             → React frontend → localhost:3000
 ```
@@ -44,8 +47,8 @@ dashboard/             → React frontend → localhost:3000
 
 - **Python** — pipeline orchestration
 - **Hunter.io API** — contact and email enrichment
-- **OpenAI / Claude** — LLM-powered contact selection and opener generation
-- **React** — frontend dashboard
+- **OpenAI / Claude** — LLM-powered contact selection, opener generation, and sequence writing
+- **React** — frontend dashboard with tabbed views
 - **python-dotenv** — environment variable management
 - **pandas** — CSV ingestion
 
@@ -56,7 +59,7 @@ dashboard/             → React frontend → localhost:3000
 **1. Clone and set up the environment**
 
 ```bash
-git clone https://github.com/your-username/gtm-enrichment-pipeline
+git clone https://github.com/beautifulgownss/gtm-enrichment-pipeline
 cd gtm-enrichment-pipeline
 python3 -m venv venv
 source venv/bin/activate
@@ -93,12 +96,14 @@ your-target.com
 python3 src/enrich.py
 python3 src/score.py
 python3 src/personalize.py
+python3 src/sequence.py
 ```
 
 **5. Launch the dashboard**
 
 ```bash
 cp data/enriched/personalized_companies.json dashboard/public/
+cp data/sequences/sequences.json dashboard/public/
 cd dashboard && npm start
 ```
 
@@ -108,6 +113,8 @@ Open `localhost:3000`.
 
 ## Sample output
 
+### Account prioritization
+
 | Company | Score | Best Contact | Recommendation |
 |---------|-------|-------------|----------------|
 | Stripe | 10/10 | Kevin Bognar, VP of Sales | High priority |
@@ -116,15 +123,27 @@ Open `localhost:3000`.
 | Linear | 9/10 | Casey Bertenthal, Sales Director | High priority |
 | Notion | 5/10 | — | Low priority |
 
+### Email sequences
+
+Each high-priority account gets a 3-step sequence:
+
+| Step | Type | Purpose |
+|------|------|---------|
+| 1 | Intro | Personalized first touch referencing company-specific context |
+| 2 | Follow-up | Adds a new insight or angle, doesn't just bump the thread |
+| 3 | Breakup | Closes the loop gracefully, leaves the door open |
+
 ---
 
 ## Key engineering decisions
 
 **Waterfall enrichment thinking** — Hunter.io returns strong contact data but limited firmographics. In a production version this would stack a second API (People Data Labs, Clearbit) to fill missing fields like industry and employee count.
 
-**Contact relevance over seniority** — the scoring logic selects the most *relevant* contact for a GTM tool, not just the most senior. A Head of AI Research outranks a Director of Finance even if both are the same title tier.
+**Contact relevance over seniority** — the scoring logic selects the most relevant contact for a GTM tool, not just the most senior. A Head of AI Research outranks a Director of Finance even if both are the same title tier.
 
 **Eval-first personalization** — the LLM prompt is designed to return structured JSON, making output testable and comparable across prompt versions. Next iteration adds a golden eval set to measure opener quality systematically.
+
+**Sequence coherence** — each follow-up email is aware of the previous step's angle, adding new information rather than just restating the opener. This mirrors how a skilled SDR would actually run a sequence.
 
 ---
 
@@ -132,8 +151,9 @@ Open `localhost:3000`.
 
 - [ ] Swap mock LLM responses for live OpenAI/Anthropic API calls
 - [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
-- [ ] Build a CI pipeline that re-scores accounts when new contacts are discovered
-- [ ] Add a golden eval set to measure and compare opener quality across prompt versions
+- [ ] Build live signal scraping (job postings, funding news) to inform scoring — Project 3
+- [ ] Add a golden eval set to measure and compare opener and sequence quality across prompt versions
+- [ ] Add run history and token cost observability to the dashboard — Project 4
 
 ---
 
@@ -142,6 +162,6 @@ Open `localhost:3000`.
 | Project | Description | Status |
 |---------|-------------|--------|
 | 1. Enrichment Pipeline | Domain → contacts → scored accounts → personalized openers | ✅ Complete |
-| 2. Outbound Sequence Generator | Enriched accounts → multi-step email sequences | 🔜 Next |
-| 3. Lead Scoring with Live Signals | Real-time job postings + news signals → dynamic ICP scoring | 🔜 Planned |
+| 2. Outbound Sequence Generator | Enriched accounts → 3-step personalized email sequences | ✅ Complete |
+| 3. Lead Scoring with Live Signals | Real-time job postings + news signals → dynamic ICP scoring | 🔜 Next |
 | 4. GTM Ops Dashboard | Unified pipeline UI with run history and observability | 🔜 Planned |
