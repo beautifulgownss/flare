@@ -1,6 +1,6 @@
 # GTM Enrichment Pipeline
 
-An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, produces full 3-step email sequences, layers in real-time job and news signals for dynamic scoring, logs every run to a database with cost and latency tracking, and runs automatically on a schedule in CI — all visualized in a live React dashboard.
+An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, produces full 3-step email sequences, layers in real-time job and news signals for dynamic scoring, logs every run to a database with cost and latency tracking, sends HTML email alerts when scores shift, and runs automatically on a schedule in CI — all visualized in a live React dashboard.
 
 Built as a 4-project GTM engineering portfolio.
 
@@ -10,7 +10,7 @@ Built as a 4-project GTM engineering portfolio.
 
 Sales and marketing teams spend 30-45 minutes per account on manual research — finding the right contact, validating their email, assessing fit, and writing personalized outreach. Static CRM data goes stale fast. At scale, both problems kill pipeline velocity.
 
-This pipeline automates the entire workflow in seconds — keeps scoring dynamic with live signals — gives ops teams full visibility into every run — and runs itself every Monday morning.
+This pipeline automates the entire workflow in seconds — keeps scoring dynamic with live signals — alerts you when accounts worth re-engaging surface — and runs itself every Monday morning.
 
 ---
 
@@ -22,7 +22,7 @@ This pipeline automates the entire workflow in seconds — keeps scoring dynamic
 4. **Generates** a personalized outreach opener for each high-priority account using an LLM
 5. **Sequences** each account into a 3-step email sequence — intro, follow-up, and breakup — personalized to the contact and company context
 6. **Fetches live signals** — real-time job postings and news via the Serper API — and computes a composite score weighted 70% base / 30% signals
-7. **Detects score changes** between runs and alerts when any account shifts by 1.0+ points
+7. **Detects score changes** between runs and sends an HTML email alert when any account shifts by 1.0+ points
 8. **Logs every run** to a SQLite database with timestamp, duration, company scores, and estimated token cost
 9. **Runs on a schedule** via GitHub Actions every Monday at 9am UTC — fully automated
 10. **Visualizes** everything in a React dashboard with four views: Account Prioritization, Email Sequences, Live Signals, and Run History
@@ -44,7 +44,7 @@ src/sequence.py        → LLM 3-step email sequences → data/sequences/sequenc
         ↓
 src/signals.py         → Serper API (jobs + news) → data/scored_final/companies_final.json
         ↓
-src/diff.py            → score change detection → data/score_diff.json
+src/diff.py            → score change detection + email alert → data/score_diff.json
         ↓
 src/tracker.py         → SQLite logging → data/runs.db + data/runs_export.json
         ↓
@@ -65,6 +65,7 @@ dashboard/             → React frontend → localhost:3000
 - **Serper API** — real-time Google search for job postings and news signals
 - **OpenAI / Claude** — LLM-powered contact selection, opener generation, and sequence writing
 - **SQLite** — lightweight run history and observability database
+- **Gmail SMTP** — HTML email alerting on score threshold crossings
 - **GitHub Actions** — scheduled CI pipeline with secret management and artifact uploads
 - **React** — frontend dashboard with four tabbed views
 - **python-dotenv** — environment variable management
@@ -96,6 +97,8 @@ Fill in your keys:
 HUNTER_API_KEY=your_key_here
 OPENAI_API_KEY=your_key_here
 SERPER_API_KEY=your_key_here
+ALERT_EMAIL_SENDER=your_gmail@gmail.com
+ALERT_EMAIL_PASSWORD=your_16_char_app_password
 ```
 
 **3. Add your target companies**
@@ -115,7 +118,7 @@ your-target.com
 python3 src/run_pipeline.py
 ```
 
-This runs all 5 pipeline steps in sequence, detects score changes, logs the run to SQLite, exports run history to JSON, and auto-copies outputs to the dashboard.
+This runs all 5 pipeline steps in sequence, detects score changes, sends email alerts if thresholds are crossed, logs the run to SQLite, exports run history to JSON, and auto-copies outputs to the dashboard.
 
 **5. Launch the dashboard**
 
@@ -140,8 +143,18 @@ Required GitHub secrets:
 | `HUNTER_API_KEY` | Hunter.io API key |
 | `SERPER_API_KEY` | Serper.dev API key |
 | `OPENAI_API_KEY` | OpenAI API key |
+| `ALERT_EMAIL_SENDER` | Gmail address to send alerts from |
+| `ALERT_EMAIL_PASSWORD` | Gmail App Password (16 characters, no spaces) |
 
 Pipeline outputs are uploaded as artifacts on every run and available for download from the Actions tab.
+
+---
+
+## Email alerting
+
+When any account's composite score shifts by 1.0+ points between runs, the pipeline sends an HTML alert email with a score change table, run ID, and a link back to the dashboard.
+
+Alerts fire from `diff.py` — which exits with code 1 when thresholds are crossed, causing GitHub Actions to flag the run as requiring attention.
 
 ---
 
@@ -205,7 +218,7 @@ Every pipeline run is logged automatically:
 
 **Composite scoring weights** — base enrichment score is weighted at 70%, live signals at 30%. This reflects that contact data is more reliable than search-derived signals, while still allowing strong signals to meaningfully shift priorities.
 
-**Score change alerting** — `diff.py` compares composite scores between runs and exits with code 1 when any account shifts by ±1.0+, causing GitHub Actions to flag the run. This is how a production pipeline would surface accounts worth re-engaging.
+**Score change alerting** — `diff.py` compares composite scores between runs and exits with code 1 when any account shifts by ±1.0+, causing GitHub Actions to flag the run and triggering an HTML email alert. This surfaces accounts worth re-engaging without manual monitoring.
 
 **Eval-first personalization** — the LLM prompt is designed to return structured JSON, making output testable and comparable across prompt versions. Next iteration adds a golden eval set to measure opener quality systematically.
 
@@ -220,7 +233,7 @@ Every pipeline run is logged automatically:
 - [ ] Swap mock LLM responses for live OpenAI/Anthropic API calls
 - [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
 - [ ] Add a golden eval set to measure and compare opener and sequence quality across prompt versions
-- [ ] Add Slack or email alerting when score change threshold is crossed in CI
+- [ ] Add Slack alerting as a second notification channel alongside email
 
 ---
 
@@ -231,4 +244,4 @@ Every pipeline run is logged automatically:
 | 1. Enrichment Pipeline | Domain → contacts → scored accounts → personalized openers | ✅ Complete |
 | 2. Outbound Sequence Generator | Enriched accounts → 3-step personalized email sequences | ✅ Complete |
 | 3. Lead Scoring with Live Signals | Real-time job postings + news signals → dynamic ICP scoring | ✅ Complete |
-| 4. GTM Ops Dashboard | Single-command orchestrator, run history, observability, scheduled CI | ✅ Complete |
+| 4. GTM Ops Dashboard | Single-command orchestrator, run history, observability, scheduled CI, email alerting | ✅ Complete |

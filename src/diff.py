@@ -2,9 +2,12 @@ import json
 import os
 import smtplib
 import sqlite3
+from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from tracker import get_runs, get_run_scores
+
+load_dotenv()
 
 DB_PATH = "data/runs.db"
 
@@ -64,7 +67,7 @@ def send_alert_email(alerts: list, run_id_new: str):
         print("  Email credentials not configured — skipping alert email.")
         return
 
-    subject = f"🚨 GTM Pipeline Alert — {len(alerts)} score change(s) detected"
+    subject = f"GTM Pipeline Alert — {len(alerts)} score change(s) detected"
 
     rows = ""
     for a in alerts:
@@ -164,7 +167,6 @@ def print_summary(changes: list, run_id_new: str, run_id_old: str):
                 if c["old_recommendation"] != c["new_recommendation"]:
                     print(f"       Priority: {c['old_recommendation']} → {c['new_recommendation']}")
 
-        # Send email alert
         send_alert_email(alerts, run_id_new)
 
     minor = [c for c in changes if not c.get("alert")]
