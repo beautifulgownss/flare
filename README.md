@@ -1,6 +1,6 @@
 # GTM Enrichment Pipeline
 
-An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, produces full 3-step email sequences, layers in real-time job and news signals for dynamic scoring, and logs every run to a database with cost and latency tracking — all visualized in a live React dashboard.
+An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, produces full 3-step email sequences, layers in real-time job and news signals for dynamic scoring, logs every run to a database with cost and latency tracking, and runs automatically on a schedule in CI — all visualized in a live React dashboard.
 
 Built as a 4-project GTM engineering portfolio.
 
@@ -10,7 +10,7 @@ Built as a 4-project GTM engineering portfolio.
 
 Sales and marketing teams spend 30-45 minutes per account on manual research — finding the right contact, validating their email, assessing fit, and writing personalized outreach. Static CRM data goes stale fast. At scale, both problems kill pipeline velocity.
 
-This pipeline automates the entire workflow in seconds — keeps scoring dynamic with live signals — and gives ops teams full visibility into every run.
+This pipeline automates the entire workflow in seconds — keeps scoring dynamic with live signals — gives ops teams full visibility into every run — and runs itself every Monday morning.
 
 ---
 
@@ -22,8 +22,10 @@ This pipeline automates the entire workflow in seconds — keeps scoring dynamic
 4. **Generates** a personalized outreach opener for each high-priority account using an LLM
 5. **Sequences** each account into a 3-step email sequence — intro, follow-up, and breakup — personalized to the contact and company context
 6. **Fetches live signals** — real-time job postings and news via the Serper API — and computes a composite score weighted 70% base / 30% signals
-7. **Logs every run** to a SQLite database with timestamp, duration, company scores, and estimated token cost
-8. **Visualizes** everything in a React dashboard with four views: Account Prioritization, Email Sequences, Live Signals, and Run History
+7. **Detects score changes** between runs and alerts when any account shifts by 1.0+ points
+8. **Logs every run** to a SQLite database with timestamp, duration, company scores, and estimated token cost
+9. **Runs on a schedule** via GitHub Actions every Monday at 9am UTC — fully automated
+10. **Visualizes** everything in a React dashboard with four views: Account Prioritization, Email Sequences, Live Signals, and Run History
 
 ---
 
@@ -42,9 +44,14 @@ src/sequence.py        → LLM 3-step email sequences → data/sequences/sequenc
         ↓
 src/signals.py         → Serper API (jobs + news) → data/scored_final/companies_final.json
         ↓
+src/diff.py            → score change detection → data/score_diff.json
+        ↓
 src/tracker.py         → SQLite logging → data/runs.db + data/runs_export.json
         ↓
 src/run_pipeline.py    → orchestrates all steps in one command
+        ↓
+.github/workflows/
+└── pipeline.yml       → scheduled CI on GitHub Actions (every Monday 9am UTC)
         ↓
 dashboard/             → React frontend → localhost:3000
 ```
@@ -58,13 +65,14 @@ dashboard/             → React frontend → localhost:3000
 - **Serper API** — real-time Google search for job postings and news signals
 - **OpenAI / Claude** — LLM-powered contact selection, opener generation, and sequence writing
 - **SQLite** — lightweight run history and observability database
+- **GitHub Actions** — scheduled CI pipeline with secret management and artifact uploads
 - **React** — frontend dashboard with four tabbed views
 - **python-dotenv** — environment variable management
 - **pandas** — CSV ingestion
 
 ---
 
-## Running the pipeline
+## Running the pipeline locally
 
 **1. Clone and set up the environment**
 
@@ -107,7 +115,7 @@ your-target.com
 python3 src/run_pipeline.py
 ```
 
-This runs all 5 pipeline steps in sequence, logs the run to SQLite, exports run history to JSON, and auto-updates all dashboard files.
+This runs all 5 pipeline steps in sequence, detects score changes, logs the run to SQLite, exports run history to JSON, and auto-copies outputs to the dashboard.
 
 **5. Launch the dashboard**
 
@@ -116,6 +124,24 @@ cd dashboard && npm start
 ```
 
 Open `localhost:3000`.
+
+---
+
+## CI / Scheduled runs
+
+The pipeline runs automatically every Monday at 9am UTC via GitHub Actions.
+
+To trigger manually: **Actions** → **GTM Pipeline** → **Run workflow**.
+
+Required GitHub secrets:
+
+| Secret | Description |
+|--------|-------------|
+| `HUNTER_API_KEY` | Hunter.io API key |
+| `SERPER_API_KEY` | Serper.dev API key |
+| `OPENAI_API_KEY` | OpenAI API key |
+
+Pipeline outputs are uploaded as artifacts on every run and available for download from the Actions tab.
 
 ---
 
@@ -136,10 +162,10 @@ Open `localhost:3000`.
 | Company | Base | Signal | Composite | Final |
 |---------|------|--------|-----------|-------|
 | Vercel | 10/10 | 10/10 | 10.0 | High priority |
-| Retool | 10/10 | 8/10 | 9.4 | High priority |
+| Retool | 10/10 | 7/10 | 9.1 | High priority |
+| Linear | 9/10 | 9/10 | 9.0 | High priority |
 | Stripe | 10/10 | 6/10 | 8.8 | High priority |
-| Linear | 9/10 | 8/10 | 8.7 | High priority |
-| Notion | 5/10 | 9/10 | 6.2 | Medium priority |
+| Notion | 5/10 | 7/10 | 5.6 | Medium priority |
 
 **Key insight:** Notion was deprioritized by static scoring due to low contact discoverability. Live signals caught a $500M ARR announcement, active investor activity, and a new AI agent launch — bumping it to Medium priority. Static data tells you who a company is. Live signals tell you why now is the right time.
 
@@ -165,6 +191,7 @@ Every pipeline run is logged automatically:
 | High / Medium / Low | Priority distribution |
 | Avg composite score | Mean signal-weighted score across accounts |
 | Estimated token cost | Mock pricing at $0.002/company (gpt-4o-mini rate) |
+| Score alerts | Accounts with ±1.0+ composite score change vs prior run |
 
 ---
 
@@ -177,6 +204,8 @@ Every pipeline run is logged automatically:
 **Contact relevance over seniority** — the scoring logic selects the most relevant contact for a GTM tool, not just the most senior. A Head of AI Research outranks a Director of Finance even if both are the same title tier.
 
 **Composite scoring weights** — base enrichment score is weighted at 70%, live signals at 30%. This reflects that contact data is more reliable than search-derived signals, while still allowing strong signals to meaningfully shift priorities.
+
+**Score change alerting** — `diff.py` compares composite scores between runs and exits with code 1 when any account shifts by ±1.0+, causing GitHub Actions to flag the run. This is how a production pipeline would surface accounts worth re-engaging.
 
 **Eval-first personalization** — the LLM prompt is designed to return structured JSON, making output testable and comparable across prompt versions. Next iteration adds a golden eval set to measure opener quality systematically.
 
@@ -191,7 +220,7 @@ Every pipeline run is logged automatically:
 - [ ] Swap mock LLM responses for live OpenAI/Anthropic API calls
 - [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
 - [ ] Add a golden eval set to measure and compare opener and sequence quality across prompt versions
-- [ ] Wire GitHub Actions to run the pipeline on a schedule and alert on score changes
+- [ ] Add Slack or email alerting when score change threshold is crossed in CI
 
 ---
 
@@ -202,4 +231,4 @@ Every pipeline run is logged automatically:
 | 1. Enrichment Pipeline | Domain → contacts → scored accounts → personalized openers | ✅ Complete |
 | 2. Outbound Sequence Generator | Enriched accounts → 3-step personalized email sequences | ✅ Complete |
 | 3. Lead Scoring with Live Signals | Real-time job postings + news signals → dynamic ICP scoring | ✅ Complete |
-| 4. GTM Ops Dashboard | Single-command orchestrator with run history and observability | ✅ Complete |
+| 4. GTM Ops Dashboard | Single-command orchestrator, run history, observability, scheduled CI | ✅ Complete |
