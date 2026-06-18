@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Dashboard from "./Dashboard";
 import SequenceView from "./SequenceView";
 import SignalsView from "./SignalsView";
+import ObservabilityView from "./ObservabilityView";
 
 const COLORS = {
   bg: "#0A0F1E",
@@ -16,11 +17,13 @@ export default function App() {
   const [companies, setCompanies] = useState([]);
   const [sequences, setSequences] = useState([]);
   const [signals, setSignals] = useState([]);
+  const [runs, setRuns] = useState([]);
 
   useEffect(() => {
     fetch("/personalized_companies.json").then(r => r.json()).then(setCompanies);
     fetch("/sequences.json").then(r => r.json()).then(setSequences);
     fetch("/companies_final.json").then(r => r.json()).then(setSignals);
+    fetch("/runs_export.json").then(r => r.json()).then(setRuns);
   }, []);
 
   return (
@@ -31,6 +34,7 @@ export default function App() {
             { id: "accounts", label: "Account prioritization" },
             { id: "sequences", label: "Email sequences" },
             { id: "signals", label: "Live signals" },
+            { id: "runs", label: "Run history" },
           ].map(t => (
             <button
               key={t.id}
@@ -50,6 +54,7 @@ export default function App() {
         {tab === "accounts" && <Dashboard companies={companies} />}
         {tab === "sequences" && <SequenceView companies={sequences} />}
         {tab === "signals" && <SignalsView companies={signals} />}
+        {tab === "runs" && <ObservabilityView runs={runs} />}
       </div>
     </div>
   );

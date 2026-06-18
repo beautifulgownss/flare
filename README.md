@@ -1,6 +1,6 @@
 # GTM Enrichment Pipeline
 
-An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, produces full 3-step email sequences, and layers in real-time job and news signals for dynamic scoring — all visualized in a live React dashboard.
+An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, produces full 3-step email sequences, layers in real-time job and news signals for dynamic scoring, and logs every run to a database with cost and latency tracking — all visualized in a live React dashboard.
 
 Built as a 4-project GTM engineering portfolio.
 
@@ -10,7 +10,7 @@ Built as a 4-project GTM engineering portfolio.
 
 Sales and marketing teams spend 30-45 minutes per account on manual research — finding the right contact, validating their email, assessing fit, and writing personalized outreach. Static CRM data goes stale fast. At scale, both problems kill pipeline velocity.
 
-This pipeline automates the entire workflow in seconds — and keeps scoring dynamic by layering in live signals.
+This pipeline automates the entire workflow in seconds — keeps scoring dynamic with live signals — and gives ops teams full visibility into every run.
 
 ---
 
@@ -22,7 +22,8 @@ This pipeline automates the entire workflow in seconds — and keeps scoring dyn
 4. **Generates** a personalized outreach opener for each high-priority account using an LLM
 5. **Sequences** each account into a 3-step email sequence — intro, follow-up, and breakup — personalized to the contact and company context
 6. **Fetches live signals** — real-time job postings and news via the Serper API — and computes a composite score weighted 70% base / 30% signals
-7. **Visualizes** everything in a React dashboard with three views: Account Prioritization, Email Sequences, and Live Signals
+7. **Logs every run** to a SQLite database with timestamp, duration, company scores, and estimated token cost
+8. **Visualizes** everything in a React dashboard with four views: Account Prioritization, Email Sequences, Live Signals, and Run History
 
 ---
 
@@ -41,6 +42,10 @@ src/sequence.py        → LLM 3-step email sequences → data/sequences/sequenc
         ↓
 src/signals.py         → Serper API (jobs + news) → data/scored_final/companies_final.json
         ↓
+src/tracker.py         → SQLite logging → data/runs.db + data/runs_export.json
+        ↓
+src/run_pipeline.py    → orchestrates all steps in one command
+        ↓
 dashboard/             → React frontend → localhost:3000
 ```
 
@@ -52,7 +57,8 @@ dashboard/             → React frontend → localhost:3000
 - **Hunter.io API** — contact and email enrichment
 - **Serper API** — real-time Google search for job postings and news signals
 - **OpenAI / Claude** — LLM-powered contact selection, opener generation, and sequence writing
-- **React** — frontend dashboard with three tabbed views
+- **SQLite** — lightweight run history and observability database
+- **React** — frontend dashboard with four tabbed views
 - **python-dotenv** — environment variable management
 - **pandas** — CSV ingestion
 
@@ -95,22 +101,17 @@ notion.so
 your-target.com
 ```
 
-**4. Run the full pipeline**
+**4. Run the full pipeline — one command**
 
 ```bash
-python3 src/enrich.py
-python3 src/score.py
-python3 src/personalize.py
-python3 src/sequence.py
-python3 src/signals.py
+python3 src/run_pipeline.py
 ```
+
+This runs all 5 pipeline steps in sequence, logs the run to SQLite, exports run history to JSON, and auto-updates all dashboard files.
 
 **5. Launch the dashboard**
 
 ```bash
-cp data/enriched/personalized_companies.json dashboard/public/
-cp data/sequences/sequences.json dashboard/public/
-cp data/scored_final/companies_final.json dashboard/public/
 cd dashboard && npm start
 ```
 
@@ -135,12 +136,12 @@ Open `localhost:3000`.
 | Company | Base | Signal | Composite | Final |
 |---------|------|--------|-----------|-------|
 | Vercel | 10/10 | 10/10 | 10.0 | High priority |
-| Retool | 10/10 | 10/10 | 10.0 | High priority |
+| Retool | 10/10 | 8/10 | 9.4 | High priority |
 | Stripe | 10/10 | 6/10 | 8.8 | High priority |
-| Linear | 9/10 | 6/10 | 8.1 | High priority |
-| Notion | 5/10 | 8/10 | 5.9 | Medium priority |
+| Linear | 9/10 | 8/10 | 8.7 | High priority |
+| Notion | 5/10 | 9/10 | 6.2 | Medium priority |
 
-**Key insight:** Notion was deprioritized by static scoring due to low contact discoverability. Live signals caught a $500M ARR announcement, active investor activity, and a new AI agent launch — bumping it to Medium priority. Static data tells you who a company is. Live signals tell you why now is the right time to reach out.
+**Key insight:** Notion was deprioritized by static scoring due to low contact discoverability. Live signals caught a $500M ARR announcement, active investor activity, and a new AI agent launch — bumping it to Medium priority. Static data tells you who a company is. Live signals tell you why now is the right time.
 
 ### Email sequences
 
@@ -152,9 +153,24 @@ Each high-priority account gets a 3-step sequence:
 | 2 | Follow-up | Adds a new insight or angle, doesn't just bump the thread |
 | 3 | Breakup | Closes the loop gracefully, leaves the door open |
 
+### Run history
+
+Every pipeline run is logged automatically:
+
+| Field | Description |
+|-------|-------------|
+| Run ID | Unique timestamped identifier |
+| Duration | End-to-end pipeline execution time |
+| Companies processed | Account count per run |
+| High / Medium / Low | Priority distribution |
+| Avg composite score | Mean signal-weighted score across accounts |
+| Estimated token cost | Mock pricing at $0.002/company (gpt-4o-mini rate) |
+
 ---
 
 ## Key engineering decisions
+
+**Single-command orchestration** — `run_pipeline.py` runs all 5 steps in sequence, handles errors, logs the run, and auto-copies outputs to the dashboard. No manual file management between steps.
 
 **Waterfall enrichment thinking** — Hunter.io returns strong contact data but limited firmographics. In a production version this would stack a second API (People Data Labs, Clearbit) to fill missing fields like industry and employee count.
 
@@ -164,7 +180,9 @@ Each high-priority account gets a 3-step sequence:
 
 **Eval-first personalization** — the LLM prompt is designed to return structured JSON, making output testable and comparable across prompt versions. Next iteration adds a golden eval set to measure opener quality systematically.
 
-**Sequence coherence** — each follow-up email is aware of the previous step's angle, adding new information rather than just restating the opener. This mirrors how a skilled SDR would actually run a sequence.
+**Sequence coherence** — each follow-up email is aware of the previous step's angle, adding new information rather than restating the opener. This mirrors how a skilled SDR would actually run a sequence.
+
+**Observable by default** — every run is persisted to SQLite with full per-company score breakdowns. Cost and latency are tracked from day one, not bolted on later.
 
 ---
 
@@ -173,7 +191,7 @@ Each high-priority account gets a 3-step sequence:
 - [ ] Swap mock LLM responses for live OpenAI/Anthropic API calls
 - [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
 - [ ] Add a golden eval set to measure and compare opener and sequence quality across prompt versions
-- [ ] Add run history, token cost tracking, and pipeline observability — Project 4
+- [ ] Wire GitHub Actions to run the pipeline on a schedule and alert on score changes
 
 ---
 
@@ -184,4 +202,4 @@ Each high-priority account gets a 3-step sequence:
 | 1. Enrichment Pipeline | Domain → contacts → scored accounts → personalized openers | ✅ Complete |
 | 2. Outbound Sequence Generator | Enriched accounts → 3-step personalized email sequences | ✅ Complete |
 | 3. Lead Scoring with Live Signals | Real-time job postings + news signals → dynamic ICP scoring | ✅ Complete |
-| 4. GTM Ops Dashboard | Unified pipeline UI with run history and observability | 🔜 Next |
+| 4. GTM Ops Dashboard | Single-command orchestrator with run history and observability | ✅ Complete |
