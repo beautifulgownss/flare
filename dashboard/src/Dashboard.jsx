@@ -98,47 +98,35 @@ function CompanyCard({ company }) {
   );
 }
 
-export default function Dashboard() {
-  const [companies, setCompanies] = useState([]);
-
-  useEffect(() => {
-    fetch("/personalized_companies.json")
-      .then((r) => r.json())
-      .then(setCompanies)
-      .catch(() => console.error("Could not load personalized_companies.json"));
-  }, []);
-
+export default function Dashboard({ companies = [] }) {
   const high = companies.filter((c) => c.recommendation === "High priority").length;
-  const avgScore = companies.length ? (companies.reduce((a, c) => a + c.score, 0) / companies.length).toFixed(1) : 0;
+  const avgScore = companies.length
+    ? (companies.reduce((a, c) => a + c.score, 0) / companies.length).toFixed(1)
+    : 0;
 
   return (
-    <div style={{ background: COLORS.bg, minHeight: "100vh", padding: "2rem", fontFamily: "Inter, sans-serif", color: COLORS.text }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-
-        <div style={{ borderBottom: `0.5px solid ${COLORS.border}`, paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-          <p style={{ fontSize: 12, fontFamily: "monospace", color: COLORS.muted, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            GTM enrichment pipeline · run output
-          </p>
-          <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 1rem" }}>Account prioritization</h1>
-          <div style={{ display: "flex", gap: 12 }}>
-            {[
-              { label: "Companies enriched", value: companies.length },
-              { label: "High priority", value: high },
-              { label: "Openers generated", value: high },
-              { label: "Avg score", value: avgScore },
-            ].map((s) => (
-              <div key={s.label} style={{ background: "#111827", borderRadius: 8, padding: "0.75rem 1rem", flex: 1 }}>
-                <p style={{ fontSize: 12, color: COLORS.muted, margin: "0 0 2px" }}>{s.label}</p>
-                <p style={{ fontSize: 20, fontWeight: 500, color: COLORS.text, margin: 0 }}>{s.value}</p>
-              </div>
-            ))}
-          </div>
+    <div>
+      <div style={{ borderBottom: `0.5px solid #1E293B`, paddingBottom: "1rem", marginBottom: "1.5rem" }}>
+        <p style={{ fontSize: 12, fontFamily: "monospace", color: "#64748B", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          GTM enrichment pipeline · run output
+        </p>
+        <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 1rem" }}>Account prioritization</h1>
+        <div style={{ display: "flex", gap: 12 }}>
+          {[
+            { label: "Companies enriched", value: companies.length },
+            { label: "High priority", value: high },
+            { label: "Openers generated", value: high },
+            { label: "Avg score", value: avgScore },
+          ].map((s) => (
+            <div key={s.label} style={{ background: "#111827", borderRadius: 8, padding: "0.75rem 1rem", flex: 1 }}>
+              <p style={{ fontSize: 12, color: "#64748B", margin: "0 0 2px" }}>{s.label}</p>
+              <p style={{ fontSize: 20, fontWeight: 500, color: "#F0F4FF", margin: 0 }}>{s.value}</p>
+            </div>
+          ))}
         </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
-          {companies.map((c) => <CompanyCard key={c.domain} company={c} />)}
-        </div>
-
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+        {companies.map((c) => <CompanyCard key={c.domain} company={c} />)}
       </div>
     </div>
   );
