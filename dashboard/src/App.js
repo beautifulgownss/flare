@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Dashboard from "./Dashboard";
 import SequenceView from "./SequenceView";
+import SignalsView from "./SignalsView";
 
 const COLORS = {
   bg: "#0A0F1E",
@@ -14,10 +15,12 @@ export default function App() {
   const [tab, setTab] = useState("accounts");
   const [companies, setCompanies] = useState([]);
   const [sequences, setSequences] = useState([]);
+  const [signals, setSignals] = useState([]);
 
   useEffect(() => {
     fetch("/personalized_companies.json").then(r => r.json()).then(setCompanies);
     fetch("/sequences.json").then(r => r.json()).then(setSequences);
+    fetch("/companies_final.json").then(r => r.json()).then(setSignals);
   }, []);
 
   return (
@@ -27,6 +30,7 @@ export default function App() {
           {[
             { id: "accounts", label: "Account prioritization" },
             { id: "sequences", label: "Email sequences" },
+            { id: "signals", label: "Live signals" },
           ].map(t => (
             <button
               key={t.id}
@@ -45,6 +49,7 @@ export default function App() {
         </div>
         {tab === "accounts" && <Dashboard companies={companies} />}
         {tab === "sequences" && <SequenceView companies={sequences} />}
+        {tab === "signals" && <SignalsView companies={signals} />}
       </div>
     </div>
   );
