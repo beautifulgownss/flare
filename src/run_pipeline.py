@@ -52,6 +52,7 @@ def main():
     run_step("Signal Fetching", "src/signals.py")
     # HubSpot sync — non-fatal, pipeline continues even if this fails
     run_step_optional("HubSpot CRM Sync", "src/hubspot_sync.py")
+    run_step_optional("HubSpot Contacts Sync", "src/hubspot_contacts_sync.py")
     total_duration = time.time() - pipeline_start
     # Load final output for logging
     with open("data/scored_final/companies_final.json", "r") as f:
