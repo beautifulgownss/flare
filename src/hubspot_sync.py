@@ -1,6 +1,8 @@
 import os
 import json
+import time
 import requests
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,6 +15,7 @@ HEADERS = {
 }
 
 DATA_PATH = "data/scored_final/companies_final.json"
+STATUS_PATH = "data/hubspot_sync_status.json"
 
 
 def load_accounts():
@@ -55,31 +58,70 @@ def build_properties(account):
 
 
 def upsert_company(account):
+    """Upserts a company and returns a status dict for dashboard tracking."""
     domain = account.get("domain")
+    name = account.get("name")
+    start = time.time()
     properties = build_properties(account)
     existing_id = find_company_by_domain(domain)
 
     if existing_id:
         url = f"{BASE_URL}/crm/v3/objects/companies/{existing_id}"
         response = requests.patch(url, headers=HEADERS, json={"properties": properties})
-        action = "Updated"
+        action = "updated"
     else:
         url = f"{BASE_URL}/crm/v3/objects/companies"
         response = requests.post(url, headers=HEADERS, json={"properties": properties})
-        action = "Created"
+        action = "created"
+
+    duration_ms = round((time.time() - start) * 1000, 1)
 
     if response.status_code in (200, 201):
-        print(f"✅ {action}: {account.get('name')} ({domain})")
+        print(f"✅ {action.capitalize()}: {name} ({domain})")
+        return {
+            "name": name,
+            "domain": domain,
+            "status": "success",
+            "action": action,
+            "hubspot_company_id": response.json().get("id", existing_id),
+            "duration_ms": duration_ms,
+            "error": None
+        }
     else:
-        print(f"❌ Failed on {account.get('name')} ({domain}): {response.status_code}")
+        print(f"❌ Failed on {name} ({domain}): {response.status_code}")
         print(response.text)
+        return {
+            "name": name,
+            "domain": domain,
+            "status": "failed",
+            "action": action,
+            "hubspot_company_id": None,
+            "duration_ms": duration_ms,
+            "error": f"{response.status_code}: {response.text[:200]}"
+        }
 
 
 def sync_all():
     accounts = load_accounts()
     print(f"Syncing {len(accounts)} accounts to HubSpot...")
+
+    results = []
     for account in accounts:
-        upsert_company(account)
+        results.append(upsert_company(account))
+
+    status_report = {
+        "last_synced": datetime.now(timezone.utc).isoformat(),
+        "total": len(results),
+        "succeeded": sum(1 for r in results if r["status"] == "success"),
+        "failed": sum(1 for r in results if r["status"] == "failed"),
+        "accounts": results
+    }
+
+    with open(STATUS_PATH, "w") as f:
+        json.dump(status_report, f, indent=2)
+
+    print(f"\nSync status written to {STATUS_PATH}")
+    return status_report
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import Dashboard from "./Dashboard";
 import SequenceView from "./SequenceView";
 import SignalsView from "./SignalsView";
 import ObservabilityView from "./ObservabilityView";
+import HubSpotSyncView from "./HubSpotSyncView";
 
 const COLORS = {
   bg: "#0A0F1E",
@@ -18,12 +19,14 @@ export default function App() {
   const [sequences, setSequences] = useState([]);
   const [signals, setSignals] = useState([]);
   const [runs, setRuns] = useState([]);
+  const [hubspotStatus, setHubspotStatus] = useState(null);
 
   useEffect(() => {
     fetch("/personalized_companies.json").then(r => r.json()).then(setCompanies);
     fetch("/sequences.json").then(r => r.json()).then(setSequences);
     fetch("/companies_final.json").then(r => r.json()).then(setSignals);
     fetch("/runs_export.json").then(r => r.json()).then(setRuns);
+    fetch("/hubspot_sync_status.json").then(r => r.json()).then(setHubspotStatus).catch(() => setHubspotStatus(null));
   }, []);
 
   return (
@@ -35,6 +38,7 @@ export default function App() {
             { id: "sequences", label: "Email sequences" },
             { id: "signals", label: "Live signals" },
             { id: "runs", label: "Run history" },
+            { id: "hubspot", label: "HubSpot sync" },
           ].map(t => (
             <button
               key={t.id}
@@ -55,6 +59,7 @@ export default function App() {
         {tab === "sequences" && <SequenceView companies={sequences} />}
         {tab === "signals" && <SignalsView companies={signals} />}
         {tab === "runs" && <ObservabilityView runs={runs} />}
+        {tab === "hubspot" && <HubSpotSyncView status={hubspotStatus} />}
       </div>
     </div>
   );

@@ -72,6 +72,7 @@ def main():
     os.system("cp data/sequences/sequences.json dashboard/public/")
     os.system("cp data/scored_final/companies_final.json dashboard/public/")
     os.system("cp data/runs_export.json dashboard/public/")
+    os.system("cp data/hubspot_sync_status.json dashboard/public/")
     print(f"\n{'='*50}")
     print(f"  PIPELINE COMPLETE")
     print(f"  Run ID: {run_id}")
