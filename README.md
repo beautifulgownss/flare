@@ -1,12 +1,10 @@
 # GTM Enrichment Pipeline
 
-An end-to-end pipeline that takes a list of company domains, enriches them with real contact data, scores each account for ICP fit, generates personalized outreach openers, produces full 3-step email sequences, layers in real-time job and news signals for dynamic scoring, logs every run with cost and latency tracking, sends email alerts when scores shift, syncs every account and contact into a real HubSpot CRM, and runs on a schedule in CI. All of it shows up in a live React dashboard, with sync observability and a small test suite covering the core logic.
+A pipeline that takes a list of company domains and turns it into prioritized, personalized outreach.
 
-Built as a 5-project GTM engineering portfolio.
+It enriches each domain with real contact data, scores the account for ICP fit, and writes a personalized opening line for outreach. From there it builds a full 3-step email sequence, and layers in live job and news signals to keep scoring current as conditions change. Every account and contact gets synced into a real HubSpot CRM. Each run is logged with cost and latency tracking, and an email alert fires whenever a score shifts. The whole pipeline runs on a schedule in CI.
 
----
-
-> Built to demonstrate production GTM engineering — agentic enrichment, live signal scoring, and CRM sync — for GTM Engineer / Applied AI Engineer roles.
+All of it surfaces in a live React dashboard, with sync observability and a small test suite covering the core scoring logic.
 
 ---
 
@@ -24,13 +22,13 @@ Built as a 5-project GTM engineering portfolio.
 |---|
 | ![Run History](docs/screenshots/run-history.png) |
 
-----
+---
 
 ## The problem
 
 Sales and marketing teams spend 30-45 minutes per account on manual research: finding the right contact, validating their email, assessing fit, writing personalized outreach. Static CRM data goes stale fast. At scale, both problems slow pipeline down.
 
-This pipeline automates that research in seconds, keeps scoring dynamic with live signals, alerts you when accounts worth re-engaging surface, pushes every account and contact into the CRM a sales team actually works from (properly linked, not just dumped in), and runs itself every Monday morning.
+This pipeline automates that research in seconds. Scoring stays dynamic with live signals, and you get an alert when an account worth re-engaging surfaces. Every account and contact lands in the CRM a sales team actually works from, properly linked rather than just dumped in. The whole thing runs itself every Monday morning.
 
 ---
 
@@ -162,7 +160,7 @@ This creates the `composite_score`, `gtm_recommendation`, `best_contact_email`, 
 python3 src/run_pipeline.py
 ```
 
-This runs every pipeline step in sequence, syncs accounts and contacts into HubSpot with associations, detects score changes, sends email alerts when thresholds are crossed, logs the run to SQLite, exports run history to JSON, and copies outputs into the dashboard automatically.
+This runs every pipeline step in sequence. It syncs accounts and contacts into HubSpot with associations, detects score changes, sends email alerts when thresholds are crossed, logs the run to SQLite, exports run history to JSON, and copies outputs into the dashboard automatically.
 
 **6. Launch the dashboard**
 
@@ -259,7 +257,7 @@ Started here on purpose. The scoring function is pure logic with no side effects
 | Vercel | 10/10 | Gaspar Garcia, Head of AI Research | High priority |
 | Retool | 10/10 | David Hsu, CEO | High priority |
 | Linear | 9/10 | Casey Bertenthal, Sales Director | High priority |
-| Notion | 5/10 | — | Low priority |
+| Notion | 5/10 | (none) | Low priority |
 
 ### Signal-weighted scoring (composite)
 
@@ -355,8 +353,8 @@ Every sync attempt is logged automatically:
 
 | Project | Description | Status |
 |---------|-------------|--------|
-| 1. Enrichment Pipeline | Domain → contacts → scored accounts → personalized openers | ✅ Complete |
-| 2. Outbound Sequence Generator | Enriched accounts → 3-step personalized email sequences | ✅ Complete |
-| 3. Lead Scoring with Live Signals | Real-time job postings + news signals → dynamic ICP scoring | ✅ Complete |
-| 4. GTM Ops Dashboard | Single-command orchestrator, run history, observability, scheduled CI, email alerting | ✅ Complete |
-| 5. HubSpot CRM Sync | Scored accounts and contacts synced into real, associated HubSpot records via Service Key auth, idempotent upsert, sync observability, and a unit-tested scoring core | ✅ Complete |
+| 1. Enrichment Pipeline | Domain to contacts to scored accounts to personalized openers | Complete |
+| 2. Outbound Sequence Generator | Enriched accounts to 3-step personalized email sequences | Complete |
+| 3. Lead Scoring with Live Signals | Real-time job postings and news signals to dynamic ICP scoring | Complete |
+| 4. GTM Ops Dashboard | Single-command orchestrator, run history, observability, scheduled CI, email alerting | Complete |
+| 5. HubSpot CRM Sync | Scored accounts and contacts synced into real, associated HubSpot records via Service Key auth, idempotent upsert, sync observability, and a unit-tested scoring core | Complete |
