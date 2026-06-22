@@ -6,6 +6,26 @@ Built as a 5-project GTM engineering portfolio.
 
 ---
 
+> Built to demonstrate production GTM engineering — agentic enrichment, live signal scoring, and CRM sync — for GTM Engineer / Applied AI Engineer roles.
+
+---
+
+## Live dashboard
+
+| Account Prioritization | Live Signals |
+|---|---|
+| ![Account Prioritization](docs/screenshots/account-prioritization.png) | ![Live Signals](docs/screenshots/live-signals.png) |
+
+| Email Sequences | HubSpot Sync |
+|---|---|
+| ![Email Sequences](docs/screenshots/email-sequences.png) | ![HubSpot Sync](docs/screenshots/hubspot-sync.png) |
+
+| Run History |
+|---|
+| ![Run History](docs/screenshots/run-history.png) |
+
+----
+
 ## The problem
 
 Sales and marketing teams spend 30-45 minutes per account on manual research: finding the right contact, validating their email, assessing fit, writing personalized outreach. Static CRM data goes stale fast. At scale, both problems slow pipeline down.

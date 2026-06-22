@@ -1,0 +1,30 @@
+/* ============================================================
+   SHADOWS — Splash
+   Hard, flat, offset. No blur, ever. 4px offset is the default.
+   Shadow color is the ink, or the element's accent.
+   ============================================================ */
+:root {
+  /* Ink shadows (default) */
+  --shadow-hard-sm: 2px 2px 0 var(--ink);
+  --shadow-hard: 4px 4px 0 var(--ink);
+  --shadow-hard-lg: 6px 6px 0 var(--ink);
+
+  /* Accent shadows — "the signal breaks the surface" */
+  --shadow-pool: 4px 4px 0 var(--pool-blue);
+  --shadow-coral: 4px 4px 0 var(--coral);
+  --shadow-lawn: 4px 4px 0 var(--lawn);
+
+  --shadow-pool-sm: 2px 2px 0 var(--pool-blue);
+  --shadow-coral-sm: 2px 2px 0 var(--coral);
+  --shadow-lawn-sm: 2px 2px 0 var(--lawn);
+
+  /* Pressed offset — element travels into its shadow */
+  --press-translate: translate(2px, 2px); /* @kind other */
+  --press-shadow-sm: 2px 2px 0 var(--ink);
+  --press-shadow-none: 0 0 0 var(--ink);
+
+  /* Motion — snappy, mechanical. No bounce, no easing drama. */
+  --ease-snap: cubic-bezier(0.2, 0, 0.1, 1); /* @kind other */
+  --dur-fast: 90ms; /* @kind other */
+  --dur-base: 140ms; /* @kind other */
+}

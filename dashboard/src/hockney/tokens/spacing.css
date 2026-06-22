@@ -1,0 +1,37 @@
+/* ============================================================
+   SPACING, BORDERS, RADII — Splash
+   Corners are SHARP. Radius is 0 everywhere except the rare pill.
+   ============================================================ */
+:root {
+  /* 4px base spacing scale */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* Radii — sharp by mandate */
+  --radius-none: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-pill: 999px; /* reserved: avatars, the rare status dot pill */
+
+  /* Border widths — hard ink outlines */
+  --border-hairline: 1.5px;
+  --border-base: 2px;
+  --border-bold: 3px;
+
+  /* Composed border shorthands */
+  --line-ink: var(--border-base) solid var(--ink);
+  --line-ink-bold: var(--border-bold) solid var(--ink);
+  --line-ink-hairline: var(--border-hairline) solid var(--ink);
+
+  /* Layout */
+  --container-max: 1120px;
+  --gutter: var(--space-5);
+}

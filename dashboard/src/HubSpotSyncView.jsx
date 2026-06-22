@@ -1,54 +1,42 @@
-const COLORS = {
-  high: "#378ADD",
-  low: "#888780",
-  bg: "#0A0F1E",
-  card: "#111827",
-  border: "#1E293B",
-  text: "#F0F4FF",
-  muted: "#64748B",
-  green: "#22C55E",
-  red: "#EF4444",
-};
+import { Card, Badge, Splash } from "./hockney/components";
 
-function StatusBadge({ status }) {
-  const isSuccess = status === "success";
+function StatCard({ label, value }) {
   return (
-    <span style={{
-      fontSize: 11, padding: "3px 8px", borderRadius: 6, fontWeight: 500,
-      background: isSuccess ? "#0F2E1C" : "#2E1313",
-      color: isSuccess ? COLORS.green : COLORS.red,
-    }}>
-      {isSuccess ? "Synced" : "Failed"}
-    </span>
+    <Card padding="var(--space-4)" style={{ flex: 1 }}>
+      <p className="splash-kicker" style={{ margin: "0 0 6px" }}>{label}</p>
+      <p style={{ font: label === "Last synced" ? "var(--type-h3)" : "var(--type-h2)", margin: 0 }}>{value}</p>
+    </Card>
   );
 }
 
 function SyncRow({ account }) {
+  const isSuccess = account.status === "success";
   return (
-    <div style={{
-      display: "flex", justifyContent: "space-between", alignItems: "center",
-      background: COLORS.card, border: `0.5px solid ${COLORS.border}`,
-      borderRadius: 10, padding: "0.85rem 1.1rem", marginBottom: 8,
-    }}>
-      <div>
-        <p style={{ fontSize: 14, fontWeight: 500, color: COLORS.text, margin: "0 0 2px" }}>{account.name}</p>
-        <p style={{ fontSize: 12, fontFamily: "monospace", color: COLORS.muted, margin: 0 }}>{account.domain}</p>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <span style={{ fontSize: 12, color: COLORS.muted, textTransform: "capitalize" }}>{account.action}</span>
-        <span style={{ fontSize: 12, fontFamily: "monospace", color: COLORS.muted }}>{account.duration_ms}ms</span>
-        <StatusBadge status={account.status} />
+    <Card accent={isSuccess ? "lawn" : "coral"} style={{ marginBottom: "var(--space-2)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {isSuccess && <Splash size={16} color="lawn" strokeWidth={5} />}
+          <div>
+            <p style={{ font: "var(--type-small)", fontWeight: "var(--weight-semibold)", margin: "0 0 2px" }}>{account.name}</p>
+            <p style={{ font: "var(--type-mono)", color: "var(--text-muted)", margin: 0, fontSize: 11 }}>{account.domain}</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ font: "var(--type-small)", color: "var(--text-muted)", textTransform: "capitalize" }}>{account.action}</span>
+          <span style={{ font: "var(--type-mono)", color: "var(--text-muted)", fontSize: 11 }}>{account.duration_ms}ms</span>
+          <Badge variant={isSuccess ? "synced" : "failed"} splash={isSuccess}>{isSuccess ? "Synced" : "Failed"}</Badge>
+        </div>
       </div>
       {account.error && (
-        <p style={{ fontSize: 11, color: COLORS.red, margin: "4px 0 0", fontFamily: "monospace" }}>{account.error}</p>
+        <p style={{ font: "var(--type-mono)", color: "var(--coral-deep)", margin: "var(--space-2) 0 0", fontSize: 11 }}>{account.error}</p>
       )}
-    </div>
+    </Card>
   );
 }
 
 export default function HubSpotSyncView({ status }) {
   if (!status || !status.accounts) {
-    return <p style={{ color: COLORS.muted, fontSize: 13 }}>No sync data yet — run the pipeline to populate this view.</p>;
+    return <p style={{ color: "var(--text-muted)", font: "var(--type-small)" }}>No sync data yet — run the pipeline to populate this view.</p>;
   }
 
   const lastSynced = status.last_synced
@@ -57,23 +45,14 @@ export default function HubSpotSyncView({ status }) {
 
   return (
     <div>
-      <div style={{ borderBottom: `0.5px solid ${COLORS.border}`, paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-        <p style={{ fontSize: 12, fontFamily: "monospace", color: COLORS.muted, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          HubSpot CRM · sync status
-        </p>
-        <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 1rem" }}>HubSpot sync</h1>
-        <div style={{ display: "flex", gap: 12 }}>
-          {[
-            { label: "Last synced", value: lastSynced },
-            { label: "Total accounts", value: status.total },
-            { label: "Succeeded", value: status.succeeded },
-            { label: "Failed", value: status.failed },
-          ].map((s) => (
-            <div key={s.label} style={{ background: COLORS.card, borderRadius: 8, padding: "0.75rem 1rem", flex: 1 }}>
-              <p style={{ fontSize: 12, color: COLORS.muted, margin: "0 0 2px" }}>{s.label}</p>
-              <p style={{ fontSize: s.label === "Last synced" ? 13 : 20, fontWeight: 500, color: COLORS.text, margin: 0 }}>{s.value}</p>
-            </div>
-          ))}
+      <div style={{ borderBottom: "var(--border-base) solid var(--ink)", paddingBottom: "var(--space-4)", marginBottom: "var(--space-5)" }}>
+        <p className="splash-kicker" style={{ margin: "0 0 4px" }}>HubSpot CRM · sync status</p>
+        <h1 style={{ font: "var(--type-h1)", margin: "0 0 var(--space-4)" }}>HubSpot sync</h1>
+        <div style={{ display: "flex", gap: "var(--space-3)" }}>
+          <StatCard label="Last synced" value={lastSynced} />
+          <StatCard label="Total accounts" value={status.total} />
+          <StatCard label="Succeeded" value={status.succeeded} />
+          <StatCard label="Failed" value={status.failed} />
         </div>
       </div>
       <div>

@@ -4,14 +4,15 @@ import SequenceView from "./SequenceView";
 import SignalsView from "./SignalsView";
 import ObservabilityView from "./ObservabilityView";
 import HubSpotSyncView from "./HubSpotSyncView";
+import { Splash, Button } from "./hockney/components";
 
-const COLORS = {
-  bg: "#0A0F1E",
-  border: "#1E293B",
-  text: "#F0F4FF",
-  muted: "#64748B",
-  high: "#378ADD",
-};
+const TABS = [
+  { id: "accounts", label: "Account prioritization" },
+  { id: "sequences", label: "Email sequences" },
+  { id: "signals", label: "Live signals" },
+  { id: "runs", label: "Run history" },
+  { id: "hubspot", label: "HubSpot sync" },
+];
 
 export default function App() {
   const [tab, setTab] = useState("accounts");
@@ -30,31 +31,30 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "Inter, sans-serif", color: COLORS.text }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem" }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: "1.5rem" }}>
-          {[
-            { id: "accounts", label: "Account prioritization" },
-            { id: "sequences", label: "Email sequences" },
-            { id: "signals", label: "Live signals" },
-            { id: "runs", label: "Run history" },
-            { id: "hubspot", label: "HubSpot sync" },
-          ].map(t => (
-            <button
+    <div style={{ background: "var(--surface-canvas)", minHeight: "100vh", font: "var(--type-body)", color: "var(--text-strong)" }}>
+      <div style={{ maxWidth: "var(--container-max)", margin: "0 auto", padding: "var(--gutter)" }}>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: "var(--space-6)" }}>
+          <Splash size={36} color="coral" />
+          <div>
+            <h1 style={{ font: "var(--type-h2)", margin: 0 }}>GTM Enrichment Pipeline</h1>
+            <p className="splash-kicker" style={{ margin: "2px 0 0" }}>Signals, surfaced.</p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-6)", flexWrap: "wrap" }}>
+          {TABS.map(t => (
+            <Button
               key={t.id}
+              size="sm"
+              variant={tab === t.id ? "primary" : "secondary"}
               onClick={() => setTab(t.id)}
-              style={{
-                padding: "8px 16px", borderRadius: 8, fontSize: 13,
-                fontWeight: 500, cursor: "pointer", border: "none",
-                background: tab === t.id ? COLORS.high : "#111827",
-                color: tab === t.id ? "#fff" : COLORS.muted,
-                transition: "all 0.2s ease",
-              }}
             >
               {t.label}
-            </button>
+            </Button>
           ))}
         </div>
+
         {tab === "accounts" && <Dashboard companies={companies} />}
         {tab === "sequences" && <SequenceView companies={sequences} />}
         {tab === "signals" && <SignalsView companies={signals} />}

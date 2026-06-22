@@ -1,0 +1,6 @@
+/* Webfonts. Splash uses three Google Fonts (chosen for the identity — there were
+   no brand font files in the source product, see README "Font substitution").
+   Archivo  — display / headlines (graphic, bold, slightly extended)
+   Hanken Grotesk — body / UI text (clean, humanist, legible at small sizes)
+   Space Mono — labels, domains, run IDs, scores (characterful monospace) */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap");

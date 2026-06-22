@@ -1,117 +1,77 @@
 import { useState } from "react";
+import { Card, Badge, ScoreMeter, Tag, Splash } from "./hockney/components";
 
-const COLORS = {
-  bg: "#0A0F1E",
-  card: "#111827",
-  border: "#1E293B",
-  text: "#F0F4FF",
-  muted: "#64748B",
-  high: "#378ADD",
-  innerBg: "#0A0F1E",
-  amber: "#F59E0B",
-  green: "#22C55E",
+function StatCard({ label, value }) {
+  return (
+    <Card padding="var(--space-4)" style={{ flex: 1 }}>
+      <p className="splash-kicker" style={{ margin: "0 0 6px" }}>{label}</p>
+      <p style={{ font: "var(--type-h2)", margin: 0 }}>{value}</p>
+    </Card>
+  );
+}
+
+const PRIORITY = {
+  "High priority": { variant: "high", color: "coral" },
+  "Medium priority": { variant: "medium", color: "pool" },
 };
-
-function ScoreBar({ label, score, max = 10, color }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 12, color: COLORS.muted }}>{label}</span>
-        <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 500, color: COLORS.text }}>{score}/{max}</span>
-      </div>
-      <div style={{ height: 4, background: "#1E293B", borderRadius: 2, overflow: "hidden" }}>
-        <div style={{
-          height: "100%", width: `${(score / max) * 100}%`,
-          background: color, borderRadius: 2,
-          transition: "width 1s ease"
-        }} />
-      </div>
-    </div>
-  );
-}
-
-function SignalTag({ text, type }) {
-  const colors = {
-    job: { bg: "#0C447C", color: "#85B7EB" },
-    news: { bg: "#633806", color: "#F59E0B" },
-  };
-  const c = colors[type] || colors.job;
-  return (
-    <div style={{
-      background: c.bg, borderRadius: 6, padding: "6px 10px",
-      marginBottom: 6, fontSize: 12, color: c.color, lineHeight: 1.5
-    }}>
-      {text}
-    </div>
-  );
-}
 
 function CompanySignalCard({ company }) {
   const [expanded, setExpanded] = useState(false);
-  const isHigh = company.final_recommendation === "High priority";
-  const isMed = company.final_recommendation === "Medium priority";
-
-  const accentColor = isHigh ? COLORS.high : isMed ? COLORS.amber : COLORS.muted;
+  const rec = PRIORITY[company.final_recommendation] || { variant: "low", color: "pool" };
+  const isHot = (company.total_signal_score || 0) >= 9;
 
   return (
-    <div style={{
-      background: COLORS.card,
-      border: `0.5px solid ${COLORS.border}`,
-      borderLeft: `3px solid ${accentColor}`,
-      borderRadius: 12,
-      padding: "1rem 1.25rem",
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-        <div>
-          <p style={{ fontSize: 16, fontWeight: 500, color: COLORS.text, margin: "0 0 2px" }}>{company.name}</p>
-          <p style={{ fontSize: 12, fontFamily: "monospace", color: COLORS.muted, margin: 0 }}>{company.domain}</p>
+    <Card accent={rec.color} bar={company.final_recommendation === "High priority"}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {isHot && <Splash size={18} color="coral" strokeWidth={5} />}
+          <div>
+            <p style={{ font: "var(--type-h3)", margin: "0 0 2px" }}>{company.name}</p>
+            <p style={{ font: "var(--type-mono)", color: "var(--text-muted)", margin: 0 }}>{company.domain}</p>
+          </div>
         </div>
-        <span style={{
-          fontSize: 11, padding: "3px 8px", borderRadius: 6, fontWeight: 500,
-          background: isHigh ? "#0C447C" : isMed ? "#633806" : "#1E293B",
-          color: isHigh ? "#85B7EB" : isMed ? COLORS.amber : COLORS.muted,
-        }}>
-          {company.final_recommendation}
-        </span>
+        <Badge variant={rec.variant}>{company.final_recommendation}</Badge>
       </div>
 
-      <ScoreBar label="Base score" score={company.score} color={COLORS.high} />
-      <ScoreBar label="Signal score" score={company.total_signal_score} max={10} color={COLORS.amber} />
-      <div style={{ borderTop: `0.5px solid ${COLORS.border}`, margin: "10px 0" }} />
-      <ScoreBar label="Composite score" score={company.composite_score} color={COLORS.green} />
+      <ScoreMeter label="Base score" value={company.score} color="pool" />
+      <div style={{ marginTop: "var(--space-3)" }}>
+        <ScoreMeter label="Signal score" value={company.total_signal_score} color="coral" />
+      </div>
+      <div style={{ borderTop: "var(--border-hairline) solid var(--ink)", margin: "var(--space-3) 0" }} />
+      <ScoreMeter label="Composite score" value={company.composite_score} color="lawn" />
 
       {(company.job_reasons?.length > 0 || company.news_reasons?.length > 0) && (
         <>
-          <div style={{ borderTop: `0.5px solid ${COLORS.border}`, margin: "12px 0" }} />
+          <div style={{ borderTop: "var(--border-hairline) solid var(--ink)", margin: "var(--space-3) 0" }} />
           <div
             onClick={() => setExpanded(!expanded)}
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: expanded ? 10 : 0 }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
           >
-            <span style={{ fontSize: 12, color: COLORS.muted }}>
+            <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>
               {(company.job_reasons?.length || 0) + (company.news_reasons?.length || 0)} signals detected
             </span>
-            <span style={{ fontSize: 12, color: COLORS.muted }}>{expanded ? "▲" : "▼"}</span>
+            <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>{expanded ? "−" : "+"}</span>
           </div>
 
           {expanded && (
-            <div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: "var(--space-3)" }}>
               {company.job_reasons?.map((r, i) => (
-                <SignalTag key={i} text={r} type="job" />
+                <Tag key={`j${i}`} type="job">{r}</Tag>
               ))}
               {company.news_reasons?.map((r, i) => (
-                <SignalTag key={i} text={r} type="news" />
+                <Tag key={`n${i}`} type="news">{r}</Tag>
               ))}
             </div>
           )}
         </>
       )}
-    </div>
+    </Card>
   );
 }
 
 export default function SignalsView({ companies }) {
   if (!companies.length) {
-    return <p style={{ color: COLORS.muted, textAlign: "center", padding: "2rem" }}>Loading signals...</p>;
+    return <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "var(--space-6)" }}>Loading signals...</p>;
   }
 
   const high = companies.filter(c => c.final_recommendation === "High priority").length;
@@ -120,27 +80,18 @@ export default function SignalsView({ companies }) {
 
   return (
     <div>
-      <div style={{ borderBottom: `0.5px solid ${COLORS.border}`, paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-        <p style={{ fontSize: 12, fontFamily: "monospace", color: COLORS.muted, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          lead scoring · live signals
-        </p>
-        <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 1rem", color: COLORS.text }}>Signal-weighted scoring</h1>
-        <div style={{ display: "flex", gap: 12 }}>
-          {[
-            { label: "High priority", value: high },
-            { label: "Medium priority", value: med },
-            { label: "Avg composite score", value: avgComposite },
-            { label: "Signal sources", value: "Jobs + News" },
-          ].map((s) => (
-            <div key={s.label} style={{ background: "#111827", borderRadius: 8, padding: "0.75rem 1rem", flex: 1 }}>
-              <p style={{ fontSize: 12, color: COLORS.muted, margin: "0 0 2px" }}>{s.label}</p>
-              <p style={{ fontSize: 20, fontWeight: 500, color: COLORS.text, margin: 0 }}>{s.value}</p>
-            </div>
-          ))}
+      <div style={{ borderBottom: "var(--border-base) solid var(--ink)", paddingBottom: "var(--space-4)", marginBottom: "var(--space-5)" }}>
+        <p className="splash-kicker" style={{ margin: "0 0 4px" }}>lead scoring · live signals</p>
+        <h1 style={{ font: "var(--type-h1)", margin: "0 0 var(--space-4)" }}>Signal-weighted scoring</h1>
+        <div style={{ display: "flex", gap: "var(--space-3)" }}>
+          <StatCard label="High priority" value={high} />
+          <StatCard label="Medium priority" value={med} />
+          <StatCard label="Avg composite score" value={avgComposite} />
+          <StatCard label="Signal sources" value="Jobs + News" />
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "var(--space-3)" }}>
         {companies.map((c) => <CompanySignalCard key={c.domain} company={c} />)}
       </div>
     </div>

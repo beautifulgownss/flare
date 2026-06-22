@@ -1,0 +1,56 @@
+/* ============================================================
+   COLORS — Splash
+   Flat fields, hard ink outlines. Three accents on a pale canvas.
+   No gradients. Ever.
+   ============================================================ */
+:root {
+  /* ---- Base palette ---- */
+
+  /* Pool blue — primary brand, interactive, info */
+  --pool-blue: #1296c7;
+  --pool-blue-deep: #0c6e93; /* pressed / hover-darken */
+  --pool-blue-pale: #cde9f3; /* tints, fills behind ink text */
+
+  /* Coral — priority, hot signals, alerts, "now" */
+  --coral: #d6336c;
+  --coral-deep: #a61e4d;
+  --coral-pale: #ffdeeb;
+
+  /* Lawn green — success, synced, positive deltas */
+  --lawn: #3fae2e;
+  --lawn-deep: #2c811f;
+  --lawn-pale: #d2ebc8;
+
+  /* ---- Neutrals ---- */
+  --canvas: #e6f1f5;       /* the pale surface everything sits on */
+  --canvas-deep: #cfe4ea;  /* recessed wells, table zebra */
+  --paper: #ffffff;        /* card / panel fill (warm white) */
+  --white: #ffffff;
+
+  --ink: #181512;          /* hard outlines, primary text, shadows */
+  --ink-soft: #4a453c;     /* body copy */
+  --ink-faint: #8a8275;    /* muted labels, meta */
+
+  /* ---- Semantic aliases ---- */
+  --brand: var(--pool-blue);
+
+  --surface-canvas: var(--canvas);
+  --surface-card: var(--paper);
+  --surface-well: var(--canvas-deep);
+
+  --border-ink: var(--ink);
+
+  --text-strong: var(--ink);
+  --text-body: var(--ink-soft);
+  --text-muted: var(--ink-faint);
+  --text-on-accent: var(--white);
+
+  --accent-info: var(--pool-blue);     /* default interactive */
+  --accent-priority: var(--coral);     /* high priority / hot */
+  --accent-success: var(--lawn);       /* synced / positive */
+
+  /* Priority buckets (account scoring) */
+  --priority-high: var(--coral);
+  --priority-medium: var(--pool-blue);
+  --priority-low: var(--ink-faint);
+}
