@@ -2,4 +2,5 @@ requests
 python-dotenv
 pandas
 openai
+anthropic
 pytest

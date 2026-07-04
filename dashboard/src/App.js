@@ -4,6 +4,7 @@ import SequenceView from "./SequenceView";
 import SignalsView from "./SignalsView";
 import ObservabilityView from "./ObservabilityView";
 import HubSpotSyncView from "./HubSpotSyncView";
+import PitchPagesView from "./PitchPagesView";
 import { Splash, Button } from "./hockney/components";
 
 const TABS = [
@@ -12,6 +13,7 @@ const TABS = [
   { id: "signals", label: "Live signals" },
   { id: "runs", label: "Run history" },
   { id: "hubspot", label: "HubSpot sync" },
+  { id: "pitch", label: "Pitch pages" },
 ];
 
 export default function App() {
@@ -21,6 +23,7 @@ export default function App() {
   const [signals, setSignals] = useState([]);
   const [runs, setRuns] = useState([]);
   const [hubspotStatus, setHubspotStatus] = useState(null);
+  const [pitchPagesStatus, setPitchPagesStatus] = useState(null);
 
   useEffect(() => {
     fetch("/personalized_companies.json").then(r => r.json()).then(setCompanies);
@@ -28,6 +31,7 @@ export default function App() {
     fetch("/companies_final.json").then(r => r.json()).then(setSignals);
     fetch("/runs_export.json").then(r => r.json()).then(setRuns);
     fetch("/hubspot_sync_status.json").then(r => r.json()).then(setHubspotStatus).catch(() => setHubspotStatus(null));
+    fetch("/pitch_pages_status.json").then(r => r.json()).then(setPitchPagesStatus).catch(() => setPitchPagesStatus(null));
   }, []);
 
   return (
@@ -60,6 +64,7 @@ export default function App() {
         {tab === "signals" && <SignalsView companies={signals} />}
         {tab === "runs" && <ObservabilityView runs={runs} />}
         {tab === "hubspot" && <HubSpotSyncView status={hubspotStatus} />}
+        {tab === "pitch" && <PitchPagesView status={pitchPagesStatus} />}
       </div>
     </div>
   );

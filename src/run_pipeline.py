@@ -50,6 +50,8 @@ def main():
     run_step("Personalization", "src/personalize.py")
     run_step("Sequence Generation", "src/sequence.py")
     run_step("Signal Fetching", "src/signals.py")
+    # Pitch page generation — non-fatal, pipeline continues even if this fails
+    run_step_optional("Pitch Page Generation", "src/pitch_pages.py")
     # HubSpot sync — non-fatal, pipeline continues even if this fails
     run_step_optional("HubSpot CRM Sync", "src/hubspot_sync.py")
     run_step_optional("HubSpot Contacts Sync", "src/hubspot_contacts_sync.py")
@@ -73,6 +75,10 @@ def main():
     os.system("cp data/scored_final/companies_final.json dashboard/public/")
     os.system("cp data/runs_export.json dashboard/public/")
     os.system("cp data/hubspot_sync_status.json dashboard/public/")
+    if os.path.exists("data/pitch_pages_status.json"):
+        os.system("cp data/pitch_pages_status.json dashboard/public/")
+    if os.path.isdir("pages"):
+        os.system("mkdir -p dashboard/public/pages && cp pages/*.html dashboard/public/pages/ 2>/dev/null")
     print(f"\n{'='*50}")
     print(f"  PIPELINE COMPLETE")
     print(f"  Run ID: {run_id}")
