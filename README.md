@@ -2,7 +2,7 @@
 
 A pipeline that takes a list of company domains and turns it into prioritized, personalized outreach.
 
-It enriches each domain with real contact data, scores the account for ICP fit, and writes a personalized opening line for outreach. From there it builds a full 3-step email sequence, and layers in live job and news signals to keep scoring current as conditions change. Every account and contact gets synced into a real HubSpot CRM. Each run is logged with cost and latency tracking, and an email alert fires whenever a score shifts. The whole pipeline runs on a schedule in CI.
+It enriches each domain with real contact data, scores the account for ICP fit, and writes a personalized opening line for outreach. From there it builds a full 3-step email sequence, and layers in live job and news signals to keep scoring current as conditions change. For every high-priority account, it also generates a personalized pitch page via a live LLM call, grounded in that account's specific enrichment signals. Every account and contact gets synced into a real HubSpot CRM. Each run is logged with cost and latency tracking, and an email alert fires whenever a score shifts. The whole pipeline runs on a schedule in CI.
 
 All of it surfaces in a live React dashboard, with sync observability and a small test suite covering the core scoring logic.
 
@@ -40,14 +40,15 @@ This pipeline automates that research in seconds. Scoring stays dynamic with liv
 4. **Generates** a personalized outreach opener for each high-priority account using an LLM
 5. **Sequences** each account into a 3-step email sequence (intro, follow-up, breakup) personalized to the contact and company context
 6. **Fetches live signals**, real-time job postings and news via the Serper API, and computes a composite score weighted 70% base / 30% signals
-7. **Detects score changes** between runs and sends an HTML email alert when any account shifts by 1.0+ points
-8. **Logs every run** to a SQLite database with timestamp, duration, company scores, and estimated token cost
-9. **Syncs every scored account into HubSpot**, creating or updating Company records with composite score, recommendation, and best contact as fields a rep can actually filter and sort by
-10. **Syncs each account's best contact into HubSpot** too, creating or updating a Contact record and associating it to its parent Company
-11. **Tracks sync health per run**, logging status, action taken, and duration for every HubSpot sync attempt
-12. **Runs on a schedule** via GitHub Actions every Monday at 9am UTC, fully automated
-13. **Visualizes** everything in a React dashboard with five views: Account Prioritization, Email Sequences, Live Signals, Run History, HubSpot Sync
-14. **Unit tests** the core scoring logic in isolation, no external API needed
+7. **Generates** a personalized pitch page per high-priority account via a live Anthropic API call — headline, signal-grounded value props, and CTA rendered into a self-contained HTML page
+8. **Detects score changes** between runs and sends an HTML email alert when any account shifts by 1.0+ points
+9. **Logs every run** to a SQLite database with timestamp, duration, company scores, and estimated token cost
+10. **Syncs every scored account into HubSpot**, creating or updating Company records with composite score, recommendation, and best contact as fields a rep can actually filter and sort by
+11. **Syncs each account's best contact into HubSpot** too, creating or updating a Contact record and associating it to its parent Company
+12. **Tracks sync health per run**, logging status, action taken, and duration for every HubSpot sync attempt
+13. **Runs on a schedule** via GitHub Actions every Monday at 9am UTC, fully automated
+14. **Visualizes** everything in a React dashboard with six views: Account Prioritization, Email Sequences, Live Signals, Run History, HubSpot Sync, Pitch Pages
+15. **Unit tests** the core scoring logic in isolation, no external API needed
 
 ---
 
@@ -65,6 +66,9 @@ src/personalize.py             → LLM contact selection + opener → data/enric
 src/sequence.py                → LLM 3-step email sequences → data/sequences/sequences.json
         ↓
 src/signals.py                 → Serper API (jobs + news) → data/scored_final/companies_final.json
+        ↓
+src/pitch_pages.py             → Anthropic API → pages/{slug}.html
+                                  writes data/pitch_pages_status.json
         ↓
 src/hubspot_sync.py            → HubSpot CRM API → upserts Company records by domain
                                   writes data/hubspot_sync_status.json
@@ -95,11 +99,12 @@ tests/
 - **Hunter.io API** for contact and email enrichment
 - **Serper API** for real-time Google search (job postings, news signals)
 - **OpenAI / Claude** for LLM-powered contact selection, opener generation, and sequence writing
+- **Anthropic API (claude-sonnet-5)** for live pitch page generation — the pipeline's first real, non-mocked LLM call
 - **HubSpot API** for CRM sync via Service Key auth, custom property schema, domain-based Company upsert, email-based Contact upsert, and Contact-to-Company associations
 - **SQLite** for run history and observability
 - **Gmail SMTP** for HTML email alerts on score threshold crossings
 - **GitHub Actions** for scheduled CI with secret management and artifact uploads
-- **React** for the dashboard, five tabs
+- **React** for the dashboard, six tabs
 - **pytest** for unit testing the core scoring logic
 - **python-dotenv** for environment variables
 - **pandas** for CSV ingestion
@@ -129,6 +134,7 @@ Fill in your keys:
 ```
 HUNTER_API_KEY=your_key_here
 OPENAI_API_KEY=your_key_here
+ANTHROPIC_API_KEY=your_key_here
 SERPER_API_KEY=your_key_here
 HUBSPOT_SERVICE_KEY=your_key_here
 ALERT_EMAIL_SENDER=your_gmail@gmail.com
@@ -332,6 +338,10 @@ Every sync attempt is logged automatically:
 
 **Sequence coherence.** Each follow-up email is aware of the previous step's angle, adding new information instead of restating the opener. Mirrors how a skilled SDR actually runs a sequence.
 
+**Deterministic slugs, not model-trusted filenames.** Pitch page filenames are computed by slugifying the company name in code, never taken from the model's own `company_slug` field. Model output is untrusted text, and letting it become a path component is a filesystem risk, not just a style choice.
+
+**Signal-grounded generation.** Every value prop in a pitch page must cite the specific enrichment signal it's built on, enforced directly in the prompt's JSON schema. Keeps the copy tied to real account data instead of generic marketing filler.
+
 **Observable by default.** Every run gets persisted to SQLite with full per-company score breakdowns. Cost and latency tracked from day one, not bolted on after the fact.
 
 **Testing the logic, not the I/O, first.** The scoring function is deliberately separated from file I/O so it can be unit tested without mocking the filesystem. Tests cover tier-based scoring, best-contact selection under list-order edge cases, email coverage signals, score capping, and recommendation thresholds.
@@ -340,7 +350,7 @@ Every sync attempt is logged automatically:
 
 ## Roadmap
 
-- [ ] Swap mock LLM responses for live OpenAI/Anthropic API calls
+- [x] Swap mock LLM responses for live OpenAI/Anthropic API calls (partial — pitch page generation is the first live LLM step; contact selection, opener, and sequence generation are still mocked)
 - [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
 - [ ] Add a golden eval set to measure opener and sequence quality across prompt versions
 - [ ] Add Slack alerting alongside email
@@ -349,7 +359,7 @@ Every sync attempt is logged automatically:
 
 ---
 
-## Part of a 5-project GTM engineering portfolio
+## Part of a 6-project GTM engineering portfolio
 
 | Project | Description | Status |
 |---------|-------------|--------|
@@ -358,3 +368,4 @@ Every sync attempt is logged automatically:
 | 3. Lead Scoring with Live Signals | Real-time job postings and news signals to dynamic ICP scoring | Complete |
 | 4. GTM Ops Dashboard | Single-command orchestrator, run history, observability, scheduled CI, email alerting | Complete |
 | 5. HubSpot CRM Sync | Scored accounts and contacts synced into real, associated HubSpot records via Service Key auth, idempotent upsert, sync observability, and a unit-tested scoring core | Complete |
+| 6. Pitch Page Generator | Enriched accounts to personalized, signal-grounded pitch pages via live LLM generation | Complete |
