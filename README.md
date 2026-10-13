@@ -32,6 +32,16 @@ This pipeline automates that research in seconds. Scoring stays dynamic with liv
 
 ---
 
+## Outreach implementation status
+
+Contact selection uses the scored account’s enriched `best_contact`. Openers and
+three-step sequences currently use deterministic templates, not live LLM generation.
+They work for unfamiliar domains, never invent contact emails, and skip accounts
+without a supplied contact email. An enriched email is not a deliverability verification.
+All generated copy is marked as a draft requiring human review. The checked-in
+sample outputs predate this change; regenerate them to see the current behavior.
+Live generation and quality evaluation remain future work.
+
 ## What it does
 
 1. **Enriches** a CSV of company domains via the Hunter.io API, returning real contacts, titles, and emails per account
