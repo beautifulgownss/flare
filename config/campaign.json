@@ -1,0 +1,20 @@
+{
+  "buyer_roles": [
+    "revenue operations",
+    "revops",
+    "sales operations",
+    "sales",
+    "marketing operations"
+  ],
+  "excluded_roles": [
+    "finance",
+    "research"
+  ],
+  "offer": {
+    "name": "GTM workflow implementation",
+    "description": "I build account research and CRM workflows that connect enrichment, prioritization, and outreach drafts.",
+    "problem": "manual account research",
+    "cta": "Would a short workflow walkthrough be useful?",
+    "sender_name": "Courtney"
+  }
+}
