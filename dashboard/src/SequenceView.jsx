@@ -58,7 +58,7 @@ function SequenceCard({ company }) {
       <Card style={{ opacity: 0.55 }}>
         <p style={{ font: "var(--type-h3)", margin: "0 0 4px" }}>{company.name}</p>
         <p style={{ font: "var(--type-mono)", color: "var(--text-muted)", margin: 0 }}>{company.domain}</p>
-        <p style={{ font: "var(--type-small)", color: "var(--text-muted)", fontStyle: "italic", marginTop: "var(--space-3)" }}>Skipped — low priority</p>
+        <p style={{ font: "var(--type-small)", color: "var(--text-muted)", fontStyle: "italic", marginTop: "var(--space-3)" }}>{company.reason || "No sequence available"}</p>
       </Card>
     );
   }
