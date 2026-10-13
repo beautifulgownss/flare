@@ -1,5 +1,6 @@
 """Generate three template drafts without fabricated contacts or outcomes."""
 import json
+from campaign import load_campaign, validate_campaign
 
 
 def generate_sequence(company: dict) -> dict:
@@ -22,14 +23,16 @@ def generate_sequence(company: dict) -> dict:
     name = company.get("name") or company.get("domain") or "your team"
     first_name = str(contact.get("first_name") or "").strip()
     greeting = f"Hi {first_name}," if first_name else "Hello,"
+    offer = company.get("offer") or load_campaign()["offer"]
+    validate_campaign({"buyer_roles": ["sales"], "excluded_roles": [], "offer": offer})
     bodies = [
-        f"{greeting}\n\n{company['opener']}\n\nI built a workflow that enriches target accounts, prioritizes contacts, and prepares outreach drafts for review.\n\nWould a short walkthrough be useful?",
-        f"{greeting}\n\nFollowing up on the account research workflow. It connects enrichment and account scores to CRM records, so the research can be used in your existing process.\n\nIs that a workflow {name} would want to explore?",
-        f"{greeting}\n\nI'll close the loop here. If account research automation becomes relevant, feel free to reply to this note."
+        f"{greeting}\n\n{company['opener']}\n\n{offer['description']}\n\n{offer['cta']}",
+        f"{greeting}\n\nFollowing up on {offer['name']}.\n\n{offer['description']}\n\nIs that a workflow {name} would want to explore?",
+        f"{greeting}\n\nI'll close the loop here. If {offer['problem']} becomes a priority, feel free to reply to this note."
     ]
-    subjects = [f"Account research workflow for {name}", f"Re: Account research workflow for {name}", "Closing the loop"]
+    subjects = [f"{offer['name']} for {name}", f"Re: {offer['name']} for {name}", "Closing the loop"]
     result.update(status="draft", sequence=[
-        {"step": i + 1, "type": kind, "subject": subjects[i], "body": bodies[i]}
+        {"step": i + 1, "type": kind, "subject": subjects[i], "body": bodies[i] + f"\n\n{offer['sender_name']}"}
         for i, kind in enumerate(("intro", "follow_up", "breakup"))])
     return result
 
