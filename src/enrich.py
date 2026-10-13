@@ -34,7 +34,7 @@ def enrich_company(domain: str) -> dict:
                     "email": e.get("value"),
                     "position": e.get("position"),
                 }
-                for e in data.get("emails", [])[:3]
+                for e in data.get("emails", [])
             ]
         }
     else:
