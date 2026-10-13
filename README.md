@@ -45,9 +45,9 @@ Live generation and quality evaluation remain future work.
 ## What it does
 
 1. **Enriches** a CSV of company domains via the Hunter.io API, returning real contacts, titles, and emails per account
-2. **Scores** each account 1-10 based on contact seniority and email discoverability signals
+2. **Scores** each account 1-10 based on configured buyer-role availability and email coverage (not a firmographic ICP-fit model)
 3. **Prioritizes** accounts into High / Medium / Low buckets and selects the best contact per account
-4. **Generates** a personalized outreach opener for each high-priority account using an LLM
+4. **Drafts** a template outreach opener using the enriched buyer contact and configured offer
 5. **Sequences** each account into a 3-step email sequence (intro, follow-up, breakup) personalized to the contact and company context
 6. **Fetches live signals**, real-time job postings and news via the Serper API, and computes a composite score weighted 70% base / 30% signals
 7. **Generates** a personalized pitch page per high-priority account via a live Anthropic API call — headline, signal-grounded value props, and CTA rendered into a self-contained HTML page
@@ -71,9 +71,9 @@ src/enrich.py                  → Hunter.io API → data/enriched/companies.jso
         ↓
 src/score.py                   → ICP scoring logic → data/enriched/scored_companies.json
         ↓
-src/personalize.py             → LLM contact selection + opener → data/enriched/personalized_companies.json
+src/personalize.py             → Configured contact + template opener → data/enriched/personalized_companies.json
         ↓
-src/sequence.py                → LLM 3-step email sequences → data/sequences/sequences.json
+src/sequence.py                → Template 3-step email sequences → data/sequences/sequences.json
         ↓
 src/signals.py                 → Serper API (jobs + news) → data/scored_final/companies_final.json
         ↓
@@ -120,6 +120,20 @@ tests/
 - **pandas** for CSV ingestion
 
 ---
+
+## Configure the buyer and offer
+
+Edit `config/campaign.json` before running the pipeline:
+
+- `buyer_roles`: title phrases in priority order (case-insensitive substring matching).
+- `excluded_roles`: title phrases that disqualify a contact, even when a buyer role matches.
+- `offer`: offer name, description, problem, call to action, and sender name.
+
+The default is an illustrative GTM workflow service, not a validated commercial offer.
+Use `GTM_CAMPAIGN_CONFIG=/path/to/campaign.json` to select a different client config.
+Invalid configuration fails before scoring. All returned Hunter contacts are considered;
+selection requires a supplied email but does not verify its deliverability. Outreach
+carries the offer snapshot from personalization into sequence generation.
 
 ## Running the pipeline locally
 
@@ -330,7 +344,7 @@ Every sync attempt is logged automatically:
 
 **Waterfall enrichment thinking.** Hunter.io returns strong contact data but limited firmographics. A production version would stack a second API (People Data Labs, Clearbit) to fill gaps like industry and employee count.
 
-**Contact relevance over seniority.** The scoring logic picks the most relevant contact for a GTM tool, not just the most senior one. A Head of AI Research outranks a Director of Finance even at the same title tier.
+**Configured buyer roles.** Campaign buyer roles are ordered by priority. A matching contact with an enriched email qualifies; exclusions override matches. No matching contact means outreach is skipped. Scoring measures role availability and email coverage, not firmographic fit.
 
 **Composite scoring weights.** Base enrichment score is weighted 70%, live signals 30%. Contact data is more reliable than search-derived signals, but strong signals can still meaningfully move the needle.
 
@@ -360,7 +374,7 @@ Every sync attempt is logged automatically:
 
 ## Roadmap
 
-- [x] Swap mock LLM responses for live OpenAI/Anthropic API calls (partial — pitch page generation is the first live LLM step; contact selection, opener, and sequence generation are still mocked)
+- [x] Swap mock LLM responses for live OpenAI/Anthropic API calls (partial — pitch page generation is the first live LLM step; opener and sequence generation use deterministic templates)
 - [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
 - [ ] Add a golden eval set to measure opener and sequence quality across prompt versions
 - [ ] Add Slack alerting alongside email
