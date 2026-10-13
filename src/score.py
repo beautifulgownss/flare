@@ -1,7 +1,7 @@
 import json
-import os
+from campaign import load_campaign, select_buyer, validate_campaign
 
-def mock_llm_score(company: dict) -> dict:
+def mock_llm_score(company: dict, campaign=None) -> dict:
     """
     Mimics what an LLM would return when scoring a company.
     In Phase 2 we'll replace this with a real API call.
@@ -38,6 +38,14 @@ def mock_llm_score(company: dict) -> dict:
             if not best_contact:
                 best_contact = contact
 
+    if campaign is not None:
+        validate_campaign(campaign)
+        best_contact = select_buyer(company.get("top_contacts", []), campaign)
+        # Contactability and buyer-role match, not firmographic ICP fit.
+        score = 8 if best_contact else 3
+        reasons = ([f"Target buyer available: {best_contact.get('position')}"]
+                   if best_contact else ["No contact matches configured buyer roles with an email"])
+
     # emails found signal
     emails = company.get("emails_found", 0)
     if emails >= 10:
@@ -51,6 +59,7 @@ def mock_llm_score(company: dict) -> dict:
     score = min(score, 10)
 
     return {
+    "scoring_basis": "buyer_role_and_contactability" if campaign else "legacy_seniority",
     "domain": company.get("domain"),
     "name": company.get("name"),
     "score": min(score, 10),
@@ -66,10 +75,11 @@ def main():
     with open("data/enriched/companies.json", "r") as f:
         companies = json.load(f)
 
+    campaign = load_campaign()
     results = []
     for company in companies:
         print(f"Scoring {company.get('name')}...")
-        scored = mock_llm_score(company)
+        scored = mock_llm_score(company, campaign)
         results.append(scored)
         print(f"  Score: {scored['score']}/10 — {scored['recommendation']}")
 
