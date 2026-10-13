@@ -8,6 +8,33 @@ All of it surfaces in a live React dashboard, with sync observability and a smal
 
 ---
 
+## Try the offline demo (no API keys)
+
+Requires Python 3.11+ only. No pip packages or frontend build are needed.
+
+```bash
+python src/demo.py
+```
+
+Open `demo/output/index.html` in your browser. It shows four fictional accounts,
+two three-step draft sequences, and two skipped accounts with explanations.
+`demo/output/results.json` contains the same run as structured data.
+
+The demo uses `.example` domains and fictional people. It runs the real configured
+scoring, contact selection, and template generation functions, but never imports
+or invokes enrichment APIs, CRM sync, email alerting, or model integrations.
+Generated files stay under `demo/output`; live pipeline outputs are untouched.
+
+Optional: `python src/demo.py --campaign config/campaign.json --output /tmp/gtm-demo`.
+Use `--input` to supply a different JSON fixture list (the report remains labeled
+as a fictional demo). Outputs are deterministic for the same inputs and config.
+
+To verify the demo:
+
+```bash
+python -m unittest discover -s tests -p test_demo.py -v
+```
+
 ## Live dashboard
 
 | Account Prioritization | Live Signals |
