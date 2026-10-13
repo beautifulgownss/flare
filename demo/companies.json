@@ -1,0 +1,6 @@
+[
+  {"domain":"cedar-metrics.example","name":"Cedar Metrics (fictional)","emails_found":4,"top_contacts":[{"first_name":"Avery","last_name":"Chen","position":"CEO","email":"avery@cedar-metrics.example"},{"first_name":"Jordan","last_name":"Lee","position":"RevOps Manager","email":"jordan@cedar-metrics.example"}]},
+  {"domain":"harbor-workflows.example","name":"Harbor Workflows (fictional)","emails_found":12,"top_contacts":[{"first_name":"Morgan","last_name":"Reed","position":"VP Sales","email":"morgan@harbor-workflows.example"}]},
+  {"domain":"lumen-research.example","name":"Lumen Research (fictional)","emails_found":3,"top_contacts":[{"first_name":"Riley","last_name":"Park","position":"Head of Research","email":"riley@lumen-research.example"}]},
+  {"domain":"pocket-platform.example","name":"Pocket Platform (fictional)","emails_found":0,"top_contacts":[]}
+]
