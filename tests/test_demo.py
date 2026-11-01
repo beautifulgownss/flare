@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from demo import run_demo, render_report
 from campaign import load_campaign
+from demo import render_report, run_demo
 
 
 class DemoTests(unittest.TestCase):

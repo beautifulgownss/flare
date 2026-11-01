@@ -3,8 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from campaign import load_campaign, validate_campaign
-from score import mock_llm_score
 from personalize import generate_personalization
+from score import mock_llm_score
 from sequence import generate_sequence
 
 

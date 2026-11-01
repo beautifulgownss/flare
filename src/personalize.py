@@ -1,5 +1,6 @@
 """Build reviewable outreach drafts using only supplied contact data."""
 import json
+
 from campaign import load_campaign, validate_campaign
 
 

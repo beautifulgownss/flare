@@ -5,15 +5,17 @@ import json
 from pathlib import Path
 
 from campaign import load_campaign
-from score import mock_llm_score
 from personalize import generate_personalization
+from score import mock_llm_score
 from sequence import generate_sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def render_report(accounts, offer):
-    escape = lambda value: html.escape(str(value or ""), quote=True)
+    def escape(value):
+        return html.escape(str(value or ""), quote=True)
+
     rows = []
     for account in accounts:
         draft = account["outreach"]

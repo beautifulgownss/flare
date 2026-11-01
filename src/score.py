@@ -1,19 +1,14 @@
 import json
+
 from campaign import load_campaign, select_buyer, validate_campaign
+
 
 def mock_llm_score(company: dict, campaign=None) -> dict:
     """
     Mimics what an LLM would return when scoring a company.
     In Phase 2 we'll replace this with a real API call.
     """
-    
-    # Extract contact titles for scoring logic
-    titles = [
-        c.get("position", "") 
-        for c in company.get("top_contacts", []) 
-        if c.get("position")
-    ]
-    
+
     # Simple scoring rules based on title signals
     score = 5  # baseline
     reasons = []
@@ -21,7 +16,7 @@ def mock_llm_score(company: dict, campaign=None) -> dict:
 
     for contact in company.get("top_contacts", []):
         position = (contact.get("position") or "").lower()
-        
+
         # High value titles
         if any(t in position for t in ["ceo", "founder", "president"]):
             score += 3
@@ -72,7 +67,7 @@ def mock_llm_score(company: dict, campaign=None) -> dict:
 
 def main():
     # Load enriched companies
-    with open("data/enriched/companies.json", "r") as f:
+    with open("data/enriched/companies.json") as f:
         companies = json.load(f)
 
     campaign = load_campaign()
