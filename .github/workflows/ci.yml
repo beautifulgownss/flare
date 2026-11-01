@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (lint, tests, offline demo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Unit tests
+        run: pytest -v
+
+      - name: Offline demo smoke test
+        run: python src/demo.py --output demo/output
+
+      - name: Upload demo report
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-demo-report
+          path: demo/output/
+
+  dashboard:
+    name: Dashboard (tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm test -- --watchAll=false
+        env:
+          CI: true
+      - run: npm run build
+        env:
+          CI: true

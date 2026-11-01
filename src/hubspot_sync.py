@@ -1,9 +1,11 @@
-import os
 import json
+import os
 import time
-import requests
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from dotenv import load_dotenv
+
+from http_client import session
 
 load_dotenv()
 
@@ -19,7 +21,7 @@ STATUS_PATH = "data/hubspot_sync_status.json"
 
 
 def load_accounts():
-    with open(DATA_PATH, "r") as f:
+    with open(DATA_PATH) as f:
         return json.load(f)
 
 
@@ -35,7 +37,7 @@ def find_company_by_domain(domain):
             }]
         }]
     }
-    response = requests.post(url, headers=HEADERS, json=payload)
+    response = session.post(url, headers=HEADERS, json=payload)
     if response.status_code == 200:
         results = response.json().get("results", [])
         if results:
@@ -67,11 +69,11 @@ def upsert_company(account):
 
     if existing_id:
         url = f"{BASE_URL}/crm/v3/objects/companies/{existing_id}"
-        response = requests.patch(url, headers=HEADERS, json={"properties": properties})
+        response = session.patch(url, headers=HEADERS, json={"properties": properties})
         action = "updated"
     else:
         url = f"{BASE_URL}/crm/v3/objects/companies"
-        response = requests.post(url, headers=HEADERS, json={"properties": properties})
+        response = session.post(url, headers=HEADERS, json={"properties": properties})
         action = "created"
 
     duration_ms = round((time.time() - start) * 1000, 1)
@@ -110,7 +112,7 @@ def sync_all():
         results.append(upsert_company(account))
 
     status_report = {
-        "last_synced": datetime.now(timezone.utc).isoformat(),
+        "last_synced": datetime.now(UTC).isoformat(),
         "total": len(results),
         "succeeded": sum(1 for r in results if r["status"] == "success"),
         "failed": sum(1 for r in results if r["status"] == "failed"),

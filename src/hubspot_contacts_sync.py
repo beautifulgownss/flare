@@ -1,7 +1,9 @@
-import os
 import json
-import requests
+import os
+
 from dotenv import load_dotenv
+
+from http_client import session
 
 load_dotenv()
 
@@ -19,7 +21,7 @@ CONTACT_TO_COMPANY_ASSOCIATION_TYPE_ID = 1
 
 
 def load_accounts():
-    with open(DATA_PATH, "r") as f:
+    with open(DATA_PATH) as f:
         return json.load(f)
 
 
@@ -35,7 +37,7 @@ def find_contact_by_email(email):
             }]
         }]
     }
-    response = requests.post(url, headers=HEADERS, json=payload)
+    response = session.post(url, headers=HEADERS, json=payload)
     if response.status_code == 200:
         results = response.json().get("results", [])
         if results:
@@ -55,7 +57,7 @@ def find_company_by_domain(domain):
             }]
         }]
     }
-    response = requests.post(url, headers=HEADERS, json=payload)
+    response = session.post(url, headers=HEADERS, json=payload)
     if response.status_code == 200:
         results = response.json().get("results", [])
         if results:
@@ -79,12 +81,12 @@ def upsert_contact(best_contact):
 
     if existing_id:
         url = f"{BASE_URL}/crm/v3/objects/contacts/{existing_id}"
-        response = requests.patch(url, headers=HEADERS, json={"properties": properties})
+        response = session.patch(url, headers=HEADERS, json={"properties": properties})
         action = "Updated"
         contact_id = existing_id
     else:
         url = f"{BASE_URL}/crm/v3/objects/contacts"
-        response = requests.post(url, headers=HEADERS, json={"properties": properties})
+        response = session.post(url, headers=HEADERS, json={"properties": properties})
         action = "Created"
         contact_id = response.json().get("id") if response.status_code == 201 else None
 
@@ -104,7 +106,7 @@ def associate_contact_to_company(contact_id, company_id):
         "associationCategory": "HUBSPOT_DEFINED",
         "associationTypeId": CONTACT_TO_COMPANY_ASSOCIATION_TYPE_ID
     }]
-    response = requests.put(url, headers=HEADERS, json=payload)
+    response = session.put(url, headers=HEADERS, json=payload)
     if response.status_code in (200, 201):
         print(f"  ✅ Associated contact {contact_id} → company {company_id}")
         return True
@@ -134,7 +136,7 @@ def sync_all():
         if contact_id and company_id:
             associate_contact_to_company(contact_id, company_id)
         else:
-            print(f"  ⚠️ Skipped association — missing contact_id or company_id")
+            print("  ⚠️ Skipped association — missing contact_id or company_id")
 
 
 if __name__ == "__main__":

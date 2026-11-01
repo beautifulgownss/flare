@@ -1,10 +1,14 @@
 # GTM Enrichment Pipeline
 
+[![CI](https://github.com/beautifulgownss/gtm-enrichment-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/beautifulgownss/gtm-enrichment-pipeline/actions/workflows/ci.yml)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+![React](https://img.shields.io/badge/dashboard-React-61dafb)
+
 A pipeline that takes a list of company domains and turns it into prioritized, personalized outreach.
 
 It enriches each domain with real contact data, scores the account for ICP fit, and writes a personalized opening line for outreach. From there it builds a full 3-step email sequence, and layers in live job and news signals to keep scoring current as conditions change. For every high-priority account, it also generates a personalized pitch page via a live LLM call, grounded in that account's specific enrichment signals. Every account and contact gets synced into a real HubSpot CRM. Each run is logged with cost and latency tracking, and an email alert fires whenever a score shifts. The whole pipeline runs on a schedule in CI.
 
-All of it surfaces in a live React dashboard, with sync observability and a small test suite covering the core scoring logic.
+All of it surfaces in a live React dashboard with sync observability. Every push runs lint, unit tests, an offline demo, and a dashboard build in CI.
 
 ---
 
@@ -85,7 +89,7 @@ Live generation and quality evaluation remain future work.
 12. **Tracks sync health per run**, logging status, action taken, and duration for every HubSpot sync attempt
 13. **Runs on a schedule** via GitHub Actions every Monday at 9am UTC, fully automated
 14. **Visualizes** everything in a React dashboard with six views: Account Prioritization, Email Sequences, Live Signals, Run History, HubSpot Sync, Pitch Pages
-15. **Unit tests** the core scoring logic in isolation, no external API needed
+15. **Tests and CI**: 37 offline Python tests plus dashboard tests, run with linting and an offline demo on every push
 
 ---
 
@@ -124,8 +128,13 @@ src/run_pipeline.py            → orchestrates all steps in one command
         ↓
 dashboard/                     → React frontend → localhost:3000
 
-tests/
-└── test_score.py              → unit tests for scoring logic, run via pytest
+src/http_client.py             → shared HTTP session: timeouts + retries on 429/5xx for every API call
+
+.github/workflows/
+└── ci.yml                     → lint, tests, offline demo, dashboard tests + build on every push/PR
+
+tests/                         → pytest suite (scoring, buyer selection, outreach drafts,
+                                  signal scoring, score diffs, orchestration, offline demo)
 ```
 
 ---
@@ -135,14 +144,15 @@ tests/
 - **Python** for pipeline orchestration
 - **Hunter.io API** for contact and email enrichment
 - **Serper API** for real-time Google search (job postings, news signals)
-- **OpenAI / Claude** for LLM-powered contact selection, opener generation, and sequence writing
+- **Deterministic templates** for opener and sequence drafts (always marked as requiring human review)
 - **Anthropic API (claude-sonnet-5)** for live pitch page generation — the pipeline's first real, non-mocked LLM call
 - **HubSpot API** for CRM sync via Service Key auth, custom property schema, domain-based Company upsert, email-based Contact upsert, and Contact-to-Company associations
 - **SQLite** for run history and observability
 - **Gmail SMTP** for HTML email alerts on score threshold crossings
-- **GitHub Actions** for scheduled CI with secret management and artifact uploads
+- **GitHub Actions** for CI on every push and a scheduled weekly pipeline run with artifact uploads
 - **React** for the dashboard, six tabs
-- **pytest** for unit testing the core scoring logic
+- **pytest** and **ruff** for tests and linting, plus **Jest / React Testing Library** for the dashboard
+- **requests + urllib3 Retry** for timeouts, backoff, and `Retry-After` handling on rate-limited APIs
 - **python-dotenv** for environment variables
 - **pandas** for CSV ingestion
 
@@ -171,8 +181,10 @@ git clone https://github.com/beautifulgownss/gtm-enrichment-pipeline
 cd gtm-enrichment-pipeline
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # or: make install
 ```
+
+Run `make help` to see shortcuts for the commands below.
 
 **2. Add your API keys**
 
@@ -184,7 +196,6 @@ Fill in your keys:
 
 ```
 HUNTER_API_KEY=your_key_here
-OPENAI_API_KEY=your_key_here
 ANTHROPIC_API_KEY=your_key_here
 SERPER_API_KEY=your_key_here
 HUBSPOT_SERVICE_KEY=your_key_here
@@ -227,17 +238,21 @@ cd dashboard && npm start
 
 Open `localhost:3000`.
 
-**7. Run the test suite**
+**7. Run the tests and linter**
 
 ```bash
-python -m pytest tests/ -v
+make lint test        # ruff + pytest
+make dashboard-test   # React tests
 ```
 
 ---
 
 ## CI / Scheduled runs
 
-The pipeline runs automatically every Monday at 9am UTC via GitHub Actions.
+Two GitHub Actions workflows:
+
+- **`ci.yml`** runs on every push and pull request. It lints with ruff, runs the pytest suite, runs the offline demo as a smoke test (the report is uploaded as an artifact), then runs the dashboard tests and production build. It needs no secrets.
+- **`pipeline.yml`** runs the live pipeline every Monday at 9am UTC.
 
 To trigger manually: **Actions** → **GTM Pipeline** → **Run workflow**.
 
@@ -247,7 +262,7 @@ Required GitHub secrets:
 |--------|-------------|
 | `HUNTER_API_KEY` | Hunter.io API key |
 | `SERPER_API_KEY` | Serper.dev API key |
-| `OPENAI_API_KEY` | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key (pitch page generation; step is skipped on failure) |
 | `HUBSPOT_SERVICE_KEY` | HubSpot Service Key (Settings → Integrations → Service Keys) |
 | `ALERT_EMAIL_SENDER` | Gmail address to send alerts from |
 | `ALERT_EMAIL_PASSWORD` | Gmail App Password (16 characters, no spaces) |
@@ -287,24 +302,31 @@ Alerts fire from `diff.py`, which exits with code 1 when thresholds are crossed,
 
 ## Testing
 
-Core scoring logic (`mock_llm_score` in `score.py`) is unit tested in isolation via pytest, no file I/O or external API calls involved.
-
 ```bash
-python -m pytest tests/ -v
+make test             # or: python -m pytest
 ```
 
-**What's covered:**
-- Score adjustments per contact seniority tier (CEO/Founder, VP/Director, Head of/Manager/Lead)
-- Best-contact selection. Confirms a higher-tier contact wins out even when a lower-tier contact appears earlier in the list
-- Email coverage signal, both the bonus for high coverage and the penalty for zero coverage
-- Score capping at the 10-point ceiling
-- Recommendation threshold boundaries (High / Medium / Low priority)
+The suite runs offline in well under a second. No API keys, network, or filesystem fixtures beyond temp dirs.
 
-Started here on purpose. The scoring function is pure logic with no side effects, so it's the cheapest, highest-value place to start a test suite before tackling anything that touches the filesystem or an external API.
+**What's covered:**
+- **Campaign config**: validation errors, buyer-role priority order, exclusions overriding matches, contacts without emails never selected
+- **Scoring**: legacy seniority tiers, configured buyer-role scoring, email-coverage bonus/penalty, the 10-point cap, recommendation thresholds
+- **Outreach drafts**: openers and sequences use only the enriched contact, skip low-priority or contactless accounts, and never invent emails
+- **Live signals**: keyword tiers, per-source caps, one tier per result, and whole-word matching for acronyms (a regression test for "cross-functional" previously counting as a CRO hire)
+- **Composite scoring**: 70/30 weighting and High/Medium/Low boundaries
+- **Score diffs**: the inclusive ±1.0 alert threshold, new-account alerts, sort order
+- **Orchestration**: required steps abort the run, optional steps don't, missing optional outputs are skipped
+- **HTTP client**: default timeouts and retry policy for rate-limited APIs
+- **Offline demo**: end-to-end run with sockets patched to fail, so any network call breaks the test; output is deterministic
+- **Dashboard**: renders every tab without crashing on empty data
+
+Scoring and signal logic are pure functions separated from I/O, so they're tested directly instead of through mocked APIs.
 
 ---
 
 ## Sample output
+
+> These tables come from an earlier live run, before buyer-role scoring and the signal-matching fix. Re-run the pipeline to regenerate them.
 
 ### Account prioritization (static scoring)
 
@@ -349,7 +371,7 @@ Every pipeline run is logged automatically:
 | Companies processed | Account count per run |
 | High / Medium / Low | Priority distribution |
 | Avg composite score | Mean signal-weighted score across accounts |
-| Estimated token cost | Mock pricing at $0.002/company (gpt-4o-mini rate) |
+| Estimated token cost | Placeholder estimate at $0.002/company, not metered usage |
 | Score alerts | Accounts with ±1.0+ composite score change vs prior run |
 
 ### HubSpot sync status
@@ -367,7 +389,9 @@ Every sync attempt is logged automatically:
 
 ## Key engineering decisions
 
-**Single-command orchestration.** `run_pipeline.py` runs every step in sequence, handles errors, logs the run, and copies outputs to the dashboard. No manual file shuffling between steps.
+**Single-command orchestration.** `run_pipeline.py` runs a declarative list of steps, each marked required or optional, then logs the run and copies outputs to the dashboard. It resolves paths from the repo root, so it works from any directory.
+
+**Resilient API calls.** Every third-party request goes through one shared session (`http_client.py`) with a 20s default timeout and exponential-backoff retries on 429/5xx that honor `Retry-After`. A hung connection can't stall the scheduled run, and a rate-limit blip doesn't fail it.
 
 **Waterfall enrichment thinking.** Hunter.io returns strong contact data but limited firmographics. A production version would stack a second API (People Data Labs, Clearbit) to fill gaps like industry and employee count.
 
@@ -385,7 +409,7 @@ Every sync attempt is logged automatically:
 
 **Sync observability as a first-class output.** `hubspot_sync.py` writes a status file on every run, surfaced right in the dashboard. You can see sync health instead of finding out about it when a rep complains a record's missing.
 
-**Eval-first personalization.** The LLM prompt returns structured JSON so output is testable and comparable across prompt versions. Next step is a golden eval set to measure opener quality systematically.
+**Reviewable drafts over unverified generation.** Openers and sequences are deterministic templates built only from enriched contact data and the configured offer, flagged `requires_review`. They never invent contacts or company events. LLM generation is held back until a golden eval set exists to measure it.
 
 **Sequence coherence.** Each follow-up email is aware of the previous step's angle, adding new information instead of restating the opener. Mirrors how a skilled SDR actually runs a sequence.
 
@@ -401,11 +425,12 @@ Every sync attempt is logged automatically:
 
 ## Roadmap
 
-- [x] Swap mock LLM responses for live OpenAI/Anthropic API calls (partial — pitch page generation is the first live LLM step; opener and sequence generation use deterministic templates)
+- [x] Swap mock LLM responses for live OpenAI/Anthropic API calls (partial: pitch page generation is the first live LLM step; opener and sequence generation use deterministic templates)
 - [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
 - [ ] Add a golden eval set to measure opener and sequence quality across prompt versions
 - [ ] Add Slack alerting alongside email
-- [ ] Extend unit test coverage to `signals.py` composite scoring math and `diff.py` threshold detection
+- [x] Extend unit test coverage to `signals.py` composite scoring math and `diff.py` threshold detection
+- [x] CI on every push: lint, tests, offline demo smoke test, dashboard build
 - [ ] Add integration tests for the HubSpot sync scripts using a mocked API client
 
 ---

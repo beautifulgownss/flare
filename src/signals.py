@@ -1,7 +1,10 @@
 import json
 import os
-import requests
+import re
+
 from dotenv import load_dotenv
+
+from http_client import session
 
 load_dotenv()
 
@@ -12,7 +15,7 @@ SERPER_URL = "https://google.serper.dev/search"
 def search(query: str) -> list:
     headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
     payload = {"q": query, "num": 5}
-    response = requests.post(SERPER_URL, headers=headers, json=payload)
+    response = session.post(SERPER_URL, headers=headers, json=payload)
 
     if response.status_code == 200:
         results = response.json().get("organic", [])
@@ -29,6 +32,50 @@ def search(query: str) -> list:
         return []
 
 
+SIGNAL_CAP = 5
+
+# (terms, points, reason prefix), checked in order; first matching tier wins per result.
+JOB_TIERS = [
+    (["vp of sales", "head of sales", "chief revenue", "cro"], 3, "Hiring senior sales leader"),
+    (["sales manager", "account executive", "revops", "revenue operations"], 2, "Scaling sales team"),
+    (["marketing", "growth", "demand gen", "sdr", "bdr"], 1, "Growing GTM team"),
+]
+NEWS_TIERS = [
+    (["series", "funding", "raised", "investment"], 3, "Funding signal"),
+    (["launch", "expand", "growth", "partnership"], 2, "Growth signal"),
+    (["hire", "team", "new"], 1, "Expansion signal"),
+]
+
+
+def _term_pattern(term: str) -> re.Pattern:
+    # Terms must start on a word boundary. Short acronyms ("cro", "sdr", "new")
+    # must also end on one, so "across" or "news" don't count as matches.
+    suffix = r"\b" if len(term) <= 3 else ""
+    return re.compile(rf"\b{re.escape(term)}{suffix}")
+
+
+def score_results(results: list, tiers: list) -> tuple:
+    """Score search results against keyword tiers. Returns (capped score, reasons)."""
+    compiled = [([_term_pattern(t) for t in terms], points, label) for terms, points, label in tiers]
+    score, reasons = 0, []
+    for r in results:
+        text = f"{r.get('title') or ''} {r.get('snippet') or ''}".lower()
+        for patterns, points, label in compiled:
+            if any(p.search(text) for p in patterns):
+                score += points
+                reasons.append(f"{label}: {r.get('title')}")
+                break
+    return min(score, SIGNAL_CAP), reasons
+
+
+def score_job_results(results: list) -> tuple:
+    return score_results(results, JOB_TIERS)
+
+
+def score_news_results(results: list) -> tuple:
+    return score_results(results, NEWS_TIERS)
+
+
 def fetch_signals(company: dict) -> dict:
     name = company.get("name")
     domain = company.get("domain")
@@ -39,40 +86,8 @@ def fetch_signals(company: dict) -> dict:
     print(f"  Fetching news signals for {name}...")
     news_results = search(f"{name} funding announcement expansion 2025 2026")
 
-    # Score signals
-    job_score = 0
-    job_reasons = []
-
-    for r in job_results:
-        text = (r.get("title", "") + " " + r.get("snippet", "")).lower()
-        if any(t in text for t in ["vp of sales", "head of sales", "chief revenue", "cro"]):
-            job_score += 3
-            job_reasons.append(f"Hiring senior sales leader: {r.get('title')}")
-        elif any(t in text for t in ["sales manager", "account executive", "revops", "revenue operations"]):
-            job_score += 2
-            job_reasons.append(f"Scaling sales team: {r.get('title')}")
-        elif any(t in text for t in ["marketing", "growth", "demand gen", "sdr", "bdr"]):
-            job_score += 1
-            job_reasons.append(f"Growing GTM team: {r.get('title')}")
-
-    news_score = 0
-    news_reasons = []
-
-    for r in news_results:
-        text = (r.get("title", "") + " " + r.get("snippet", "")).lower()
-        if any(t in text for t in ["series", "funding", "raised", "investment"]):
-            news_score += 3
-            news_reasons.append(f"Funding signal: {r.get('title')}")
-        elif any(t in text for t in ["launch", "expand", "growth", "partnership"]):
-            news_score += 2
-            news_reasons.append(f"Growth signal: {r.get('title')}")
-        elif any(t in text for t in ["hire", "team", "new"]):
-            news_score += 1
-            news_reasons.append(f"Expansion signal: {r.get('title')}")
-
-    # Cap signal scores
-    job_score = min(job_score, 5)
-    news_score = min(news_score, 5)
+    job_score, job_reasons = score_job_results(job_results)
+    news_score, news_reasons = score_news_results(news_results)
     total_signal_score = job_score + news_score
 
     return {
@@ -106,7 +121,7 @@ def compute_composite_score(base_score: int, signal_score: int) -> dict:
 
 
 def main():
-    with open("data/enriched/scored_companies.json", "r") as f:
+    with open("data/enriched/scored_companies.json") as f:
         companies = json.load(f)
 
     results = []

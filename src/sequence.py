@@ -1,5 +1,6 @@
 """Generate three template drafts without fabricated contacts or outcomes."""
 import json
+
 from campaign import load_campaign, validate_campaign
 
 

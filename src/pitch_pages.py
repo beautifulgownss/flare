@@ -4,7 +4,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import anthropic
 from dotenv import load_dotenv
@@ -86,13 +86,13 @@ JSON schema:
 
 
 def load_companies() -> list:
-    with open(COMPANIES_PATH, "r") as f:
+    with open(COMPANIES_PATH) as f:
         return json.load(f)
 
 
 def load_personalized_map() -> dict:
     try:
-        with open(PERSONALIZED_PATH, "r") as f:
+        with open(PERSONALIZED_PATH) as f:
             entries = json.load(f)
     except FileNotFoundError:
         return {}
@@ -382,7 +382,7 @@ def generate_all() -> dict:
     if not ANTHROPIC_API_KEY:
         print("ERROR: ANTHROPIC_API_KEY is not set — skipping pitch page generation.")
         status_report = {
-            "last_generated": datetime.now(timezone.utc).isoformat(),
+            "last_generated": datetime.now(UTC).isoformat(),
             "total": 0,
             "succeeded": 0,
             "failed": 0,
@@ -401,7 +401,7 @@ def generate_all() -> dict:
     results = [generate_pitch_page_for_company(client, c, personalized_map) for c in companies]
 
     status_report = {
-        "last_generated": datetime.now(timezone.utc).isoformat(),
+        "last_generated": datetime.now(UTC).isoformat(),
         "total": len(results),
         "succeeded": sum(1 for r in results if r["status"] == "success"),
         "failed": sum(1 for r in results if r["status"] == "failed"),

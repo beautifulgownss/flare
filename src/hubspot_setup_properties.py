@@ -1,6 +1,8 @@
 import os
-import requests
+
 from dotenv import load_dotenv
+
+from http_client import session
 
 load_dotenv()
 
@@ -45,7 +47,7 @@ def create_properties():
     }
     for prop in PROPERTIES:
         url = f"{BASE_URL}/crm/v3/properties/companies"
-        response = requests.post(url, headers=headers, json=prop)
+        response = session.post(url, headers=headers, json=prop)
         if response.status_code == 201:
             print(f"✅ Created property: {prop['name']}")
         elif response.status_code == 409:
