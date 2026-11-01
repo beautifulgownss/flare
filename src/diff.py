@@ -1,11 +1,13 @@
 import json
 import os
 import smtplib
-import sqlite3
-from dotenv import load_dotenv
-from email.mime.text import MIMEText
+import sys
 from email.mime.multipart import MIMEMultipart
-from tracker import get_runs, get_run_scores
+from email.mime.text import MIMEText
+
+from dotenv import load_dotenv
+
+from tracker import get_run_scores, get_runs
 
 load_dotenv()
 
@@ -145,7 +147,7 @@ def send_alert_email(alerts: list, run_id_new: str):
 
 def print_summary(changes: list, run_id_new: str, run_id_old: str):
     print(f"\n{'='*50}")
-    print(f"  SCORE CHANGE REPORT")
+    print("  SCORE CHANGE REPORT")
     print(f"  New run:  {run_id_new}")
     print(f"  Old run:  {run_id_old}")
     print(f"{'='*50}")
@@ -171,7 +173,7 @@ def print_summary(changes: list, run_id_new: str, run_id_old: str):
 
     minor = [c for c in changes if not c.get("alert")]
     if minor:
-        print(f"\n  Minor changes (< 1.0 delta):")
+        print("\n  Minor changes (< 1.0 delta):")
         for c in minor:
             print(f"    {c['name']}: {c['old_score']} → {c['new_score']} ({'+' if c['delta'] > 0 else ''}{c['delta']})")
 
@@ -180,7 +182,7 @@ def print_summary(changes: list, run_id_new: str, run_id_old: str):
 
     if alerts:
         print("  Score alerts detected — flagging run.")
-        exit(1)
+        sys.exit(1)
 
 
 def main():
@@ -199,7 +201,7 @@ def main():
     }
     with open("data/score_diff.json", "w") as f:
         json.dump(output, f, indent=2)
-    print(f"  Diff saved to data/score_diff.json")
+    print("  Diff saved to data/score_diff.json")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
-import os
 import json
+import os
+
 import pandas as pd
-import requests
 from dotenv import load_dotenv
+
+from http_client import session
 
 load_dotenv()
 
@@ -14,8 +16,8 @@ def enrich_company(domain: str) -> dict:
         "domain": domain,
         "api_key": HUNTER_API_KEY,
     }
-    response = requests.get(HUNTER_URL, params=params)
-    
+    response = session.get(HUNTER_URL, params=params)
+
     if response.status_code == 200:
         data = response.json().get("data", {})
         return {

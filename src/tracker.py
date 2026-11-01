@@ -1,7 +1,6 @@
-import sqlite3
 import json
-import os
-from datetime import datetime
+import sqlite3
+from datetime import UTC, datetime
 
 DB_PATH = "data/runs.db"
 
@@ -61,7 +60,7 @@ def log_run(run_id: str, companies: list, duration: float, notes: str = ""):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         run_id,
-        datetime.utcnow().isoformat(),
+        datetime.now(UTC).isoformat(),
         len(companies),
         high, medium, low,
         avg_score,
