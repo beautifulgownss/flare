@@ -1,5 +1,5 @@
 [
-  {"domain":"cedar-metrics.example","name":"Cedar Metrics (fictional)","emails_found":4,
+  {"domain":"cedar-metrics.example","name":"Cedar Metrics","emails_found":4,
    "top_contacts":[
      {"first_name":"Avery","last_name":"Chen","position":"CEO","email":"avery@cedar-metrics.example","confidence":96,"verification_status":"valid"},
      {"first_name":"Jordan","last_name":"Lee","position":"RevOps Manager","email":"jordan@cedar-metrics.example","confidence":92,"verification_status":"valid"}],
@@ -8,7 +8,7 @@
        {"title":"Revenue Operations Analyst","snippet":"Join the Cedar Metrics RevOps team.","link":"https://jobs.ashbyhq.com/cedar-metrics/1"},
        {"title":"Revenue Operations Lead - Linear TV Ad Sales","snippet":"Unrelated company with a similar keyword.","link":"https://jobs.example-tv.example/42"}],
      "news":[]}},
-  {"domain":"harbor-workflows.example","name":"Harbor Workflows (fictional)","emails_found":12,
+  {"domain":"harbor-workflows.example","name":"Harbor Workflows","emails_found":12,
    "top_contacts":[
      {"first_name":"Morgan","last_name":"Reed","position":"VP Sales","email":"morgan@harbor-workflows.example","confidence":95,"verification_status":"valid"}],
    "demo_search_results":{
@@ -18,11 +18,11 @@
      "news":[
        {"title":"Harbor Workflows raises Series B","snippet":"harbor-workflows.example announced new funding.","link":"https://news.example/harbor-series-b"},
        {"title":"Harbor Workflows launches partner program","snippet":"The harbor-workflows.example team expands.","link":"https://harbor-workflows.example/blog/partners"}]}},
-  {"domain":"lumen-research.example","name":"Lumen Research (fictional)","emails_found":3,
+  {"domain":"lumen-research.example","name":"Lumen Research","emails_found":3,
    "top_contacts":[
      {"first_name":"Riley","last_name":"Park","position":"Head of Research","email":"riley@lumen-research.example","confidence":88,"verification_status":"valid"}],
    "demo_search_results":{"jobs":[],"news":[
        {"title":"Lumen Research appoints new CFO","snippet":"lumen-research.example leadership update.","link":"https://news.example/lumen-cfo"}]}},
-  {"domain":"pocket-platform.example","name":"Pocket Platform (fictional)","emails_found":0,"top_contacts":[],
+  {"domain":"pocket-platform.example","name":"Pocket Platform","emails_found":0,"top_contacts":[],
    "demo_search_results":{"jobs":[],"news":[]}}
 ]

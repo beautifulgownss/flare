@@ -94,3 +94,12 @@ def test_opener_without_signal_makes_no_timing_claim():
     draft = generate_personalization(company, load_campaign())
     assert "it looks like" not in draft["opener"]
     assert draft["opener_evidence"] is None
+
+
+def test_intro_email_greets_once():
+    company = {"name": "Acme", "recommendation": "High priority",
+               "best_contact": {"first_name": "Sam", "email": "sam@acme.test"},
+               "signal_evidence": [{"label": "Funding signal", "title": "Acme raises Series B", "link": "x"}]}
+    body = generate_sequence(generate_personalization(company, load_campaign()))["sequence"][0]["body"]
+    assert body.startswith("Hi Sam,")
+    assert body.count("Sam") == 1

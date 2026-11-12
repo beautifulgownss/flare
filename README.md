@@ -33,10 +33,24 @@ Use `--input` to supply a different JSON fixture list.
 
 ## Dashboard
 
-Screenshots are being regenerated from fictional demo data and will be added back
-here. Run the pipeline, then `cd dashboard && npm start` to see the six views:
-Account Prioritization, Live Signals, Email Sequences, Run History, HubSpot Sync,
-and Pitch Pages.
+Load the same fictional data into the dashboard, then start it:
+
+```bash
+python src/demo.py --dashboard
+cd dashboard && npm install && npm start
+```
+
+These screenshots come from that command. Every company and person is fictional.
+
+| Account Prioritization | Live Signals |
+|---|---|
+| ![Account Prioritization](docs/screenshots/account-prioritization.png) | ![Live Signals](docs/screenshots/live-signals.png) |
+
+| Email Sequences | Run History |
+|---|---|
+| ![Email Sequences](docs/screenshots/email-sequences.png) | ![Run History](docs/screenshots/run-history.png) |
+
+Live Signals links every timing point to the result it came from. Run History shows two demo runs: the week Harbor Workflows' funding news appeared, it moved from Medium to High, which is the score change an alert would flag.
 
 ---
 
@@ -63,7 +77,7 @@ Flare does that research automatically, keeps only evidence it can tie to the ac
 8. **Logs every run** to SQLite with duration, per-account scores, and actual token usage and cost from the model responses.
 9. **Detects score changes** against the previous run and alerts in Slack (email fallback) when an account moves 1.0+ points. Alerts never fail the run.
 10. **Runs weekly** in GitHub Actions, carrying run history between runs.
-11. **Tests and CI**: 58 offline Python tests plus dashboard tests, run with linting and the offline demo on every push.
+11. **Tests and CI**: 59 offline Python tests plus dashboard tests, run with linting and the offline demo on every push.
 
 ---
 

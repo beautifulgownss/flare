@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Card, Badge, ScoreMeter, Tag, Splash } from "./hockney/components";
 
+const JOB_LABELS = new Set(["Hiring senior sales leader", "Scaling sales team", "Growing GTM team"]);
+
 function StatCard({ label, value }) {
   return (
     <Card padding="var(--space-4)" style={{ flex: 1 }}>
@@ -48,19 +50,29 @@ function CompanySignalCard({ company }) {
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
           >
             <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>
-              {(company.job_reasons?.length || 0) + (company.news_reasons?.length || 0)} signals detected
+              {(() => {
+                const n = company.signal_evidence?.length ?? ((company.job_reasons?.length || 0) + (company.news_reasons?.length || 0));
+                return `${n} ${n === 1 ? "signal" : "signals"} detected`;
+              })()}
             </span>
             <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>{expanded ? "−" : "+"}</span>
           </div>
 
           {expanded && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: "var(--space-3)" }}>
-              {company.job_reasons?.map((r, i) => (
-                <Tag key={`j${i}`} type="job">{r}</Tag>
-              ))}
-              {company.news_reasons?.map((r, i) => (
-                <Tag key={`n${i}`} type="news">{r}</Tag>
-              ))}
+              {company.signal_evidence?.length
+                ? company.signal_evidence.map((e, i) => (
+                  <Tag key={`e${i}`} type={JOB_LABELS.has(e.label) ? "job" : "news"}>
+                    {e.label}:{" "}
+                    {e.link
+                      ? <a href={e.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{e.title}</a>
+                      : e.title}
+                  </Tag>
+                ))
+                : <>
+                  {company.job_reasons?.map((r, i) => <Tag key={`j${i}`} type="job">{r}</Tag>)}
+                  {company.news_reasons?.map((r, i) => <Tag key={`n${i}`} type="news">{r}</Tag>)}
+                </>}
             </div>
           )}
         </>

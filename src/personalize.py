@@ -42,15 +42,14 @@ def generate_personalization(company: dict, campaign=None) -> dict:
 
     name = " ".join(str(contact.get(k) or "").strip() for k in ("first_name", "last_name")).strip()
     company_name = company.get("name") or company.get("domain") or "your team"
-    greeting = str(contact.get("first_name") or "").strip()
-    prefix = f"{greeting}, " if greeting else ""
+    # The sequence step adds "Hi {first_name}," so the opener doesn't repeat the name.
     signal = top_signal(company)
     if signal:
-        opener = (f"{prefix}it looks like {company_name} is {SIGNAL_PHRASES[signal['label']]}. "
+        opener = (f"It looks like {company_name} is {SIGNAL_PHRASES[signal['label']]}. "
                   f"Is {offer['problem']} something you're looking to address?")
         reasoning = "Uses the enriched contact and the strongest account-specific signal (see opener_evidence)."
     else:
-        opener = f"{prefix}is {offer['problem']} something {company_name} is looking to address?"
+        opener = f"Is {offer['problem']} something {company_name} is looking to address?"
         reasoning = "Uses the enriched contact; no account-specific signal was found, so no timing claim is made."
 
     result.update(best_contact_name=name or None,

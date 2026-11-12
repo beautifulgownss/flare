@@ -87,7 +87,7 @@ export default function ObservabilityView({ runs }) {
         <div style={{ display: "flex", gap: "var(--space-3)" }}>
           <MetricCard label="Total runs" value={totalRuns} />
           <MetricCard label="Avg duration" value={`${avgDuration}s`} />
-          <MetricCard label="Total est. cost" value={`$${totalCost}`} sub="mock pricing" />
+          <MetricCard label="Total LLM cost" value={`$${totalCost}`} sub="from token usage" />
           <MetricCard label="Last run" value={latest.companies_processed} sub="companies processed" />
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function ObservabilityView({ runs }) {
         gap: 8, padding: "0 var(--space-3)",
         marginBottom: "var(--space-2)"
       }}>
-        {["Run ID", "Total", "High", "Medium", "Avg score", "Duration / Cost"].map(h => (
+        {["Run ID", "Total", "High", "Medium", "Avg composite", "Duration / Cost"].map(h => (
           <p key={h} className="splash-kicker" style={{ margin: 0, textAlign: h === "Duration / Cost" ? "right" : h === "Run ID" ? "left" : "center" }}>{h}</p>
         ))}
       </div>

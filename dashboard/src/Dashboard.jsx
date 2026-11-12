@@ -11,9 +11,11 @@ function StatCard({ label, value }) {
 
 function CompanyCard({ company }) {
   const isHigh = company.recommendation === "High priority";
+  const isMedium = company.recommendation === "Medium priority";
+  const hasDraft = Boolean(company.best_contact_name && company.opener);
 
   return (
-    <Card accent={isHigh ? "coral" : "none"} bar={isHigh} interactive style={{ opacity: isHigh ? 1 : 0.65 }}>
+    <Card accent={isHigh ? "coral" : "none"} bar={isHigh} interactive style={{ opacity: isHigh || isMedium ? 1 : 0.65 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-3)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {isHigh && <Splash size={18} color="coral" strokeWidth={5} />}
@@ -22,7 +24,7 @@ function CompanyCard({ company }) {
             <p style={{ font: "var(--type-mono)", color: "var(--text-muted)", margin: 0 }}>{company.domain}</p>
           </div>
         </div>
-        <Badge variant={isHigh ? "high" : "low"}>{company.recommendation}</Badge>
+        <Badge variant={isHigh ? "high" : isMedium ? "medium" : "low"}>{company.recommendation}</Badge>
       </div>
 
       <ScoreMeter value={company.composite_score ?? company.score} color={isHigh ? "coral" : "pool"} />
@@ -31,7 +33,7 @@ function CompanyCard({ company }) {
         {company.emails_found ?? "—"} emails found
       </p>
 
-      {isHigh && company.best_contact_name ? (
+      {hasDraft ? (
         <>
           <div style={{ borderTop: "var(--border-hairline) solid var(--ink)", margin: "var(--space-3) 0" }} />
           <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-3)" }}>
@@ -49,7 +51,7 @@ function CompanyCard({ company }) {
         </>
       ) : (
         <p style={{ font: "var(--type-small)", color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", padding: "var(--space-4) 0" }}>
-          No contacts found — low discoverability
+          {company.best_contact ? company.reasoning || "Not drafted" : "No contact in a configured buyer role"}
         </p>
       )}
     </Card>
@@ -58,6 +60,7 @@ function CompanyCard({ company }) {
 
 export default function Dashboard({ companies = [] }) {
   const high = companies.filter((c) => c.recommendation === "High priority").length;
+  const openers = companies.filter((c) => c.opener).length;
   const avgScore = companies.length
     ? (companies.reduce((a, c) => a + (c.composite_score ?? c.score ?? 0), 0) / companies.length).toFixed(1)
     : 0;
@@ -70,8 +73,8 @@ export default function Dashboard({ companies = [] }) {
         <div style={{ display: "flex", gap: "var(--space-3)" }}>
           <StatCard label="Companies enriched" value={companies.length} />
           <StatCard label="High priority" value={high} />
-          <StatCard label="Openers generated" value={high} />
-          <StatCard label="Avg score" value={avgScore} />
+          <StatCard label="Openers drafted" value={openers} />
+          <StatCard label="Avg composite" value={avgScore} />
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "var(--space-3)" }}>
