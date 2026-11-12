@@ -13,7 +13,7 @@ afterEach(() => {
 
 test("renders the dashboard header and every tab", async () => {
   render(<App />);
-  expect(screen.getByRole("heading", { name: /gtm enrichment pipeline/i })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /^flare$/i })).toBeInTheDocument();
   for (const label of [
     "Account prioritization",
     "Email sequences",

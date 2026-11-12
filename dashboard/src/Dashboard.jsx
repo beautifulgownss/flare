@@ -25,7 +25,7 @@ function CompanyCard({ company }) {
         <Badge variant={isHigh ? "high" : "low"}>{company.recommendation}</Badge>
       </div>
 
-      <ScoreMeter value={company.score} color={isHigh ? "coral" : "pool"} />
+      <ScoreMeter value={company.composite_score ?? company.score} color={isHigh ? "coral" : "pool"} />
 
       <p style={{ font: "var(--type-small)", color: "var(--text-muted)", margin: "var(--space-3) 0" }}>
         {company.emails_found ?? "—"} emails found
@@ -59,13 +59,13 @@ function CompanyCard({ company }) {
 export default function Dashboard({ companies = [] }) {
   const high = companies.filter((c) => c.recommendation === "High priority").length;
   const avgScore = companies.length
-    ? (companies.reduce((a, c) => a + c.score, 0) / companies.length).toFixed(1)
+    ? (companies.reduce((a, c) => a + (c.composite_score ?? c.score ?? 0), 0) / companies.length).toFixed(1)
     : 0;
 
   return (
     <div>
       <div style={{ borderBottom: "var(--border-base) solid var(--ink)", paddingBottom: "var(--space-4)", marginBottom: "var(--space-5)" }}>
-        <p className="splash-kicker" style={{ margin: "0 0 4px" }}>GTM enrichment pipeline · run output</p>
+        <p className="splash-kicker" style={{ margin: "0 0 4px" }}>Flare · run output</p>
         <h1 style={{ font: "var(--type-h1)", margin: "0 0 var(--space-4)" }}>Account prioritization</h1>
         <div style={{ display: "flex", gap: "var(--space-3)" }}>
           <StatCard label="Companies enriched" value={companies.length} />

@@ -41,7 +41,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: "var(--space-6)" }}>
           <Splash size={36} color="coral" />
           <div>
-            <h1 style={{ font: "var(--type-h2)", margin: 0 }}>GTM Enrichment Pipeline</h1>
+            <h1 style={{ font: "var(--type-h2)", margin: 0 }}>Flare</h1>
             <p className="splash-kicker" style={{ margin: "2px 0 0" }}>Signals, surfaced.</p>
           </div>
         </div>

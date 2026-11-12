@@ -1,5 +1,6 @@
 """Generate three template drafts without fabricated contacts or outcomes."""
 import json
+from pathlib import Path
 
 from campaign import load_campaign, validate_campaign
 
@@ -42,6 +43,7 @@ def main():
     with open("data/enriched/personalized_companies.json") as f:
         companies = json.load(f)
     results = [generate_sequence(company) for company in companies]
+    Path("data/sequences").mkdir(parents=True, exist_ok=True)
     with open("data/sequences/sequences.json", "w") as f:
         json.dump(results, f, indent=2)
     print(f"Prepared {len(results)} sequence results for review")

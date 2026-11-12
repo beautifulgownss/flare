@@ -18,7 +18,7 @@ const PRIORITY = {
 function CompanySignalCard({ company }) {
   const [expanded, setExpanded] = useState(false);
   const rec = PRIORITY[company.final_recommendation] || { variant: "low", color: "pool" };
-  const isHot = (company.total_signal_score || 0) >= 9;
+  const isHot = (company.total_signal_score || 0) >= 7;
 
   return (
     <Card accent={rec.color} bar={company.final_recommendation === "High priority"}>
@@ -33,7 +33,7 @@ function CompanySignalCard({ company }) {
         <Badge variant={rec.variant}>{company.final_recommendation}</Badge>
       </div>
 
-      <ScoreMeter label="Base score" value={company.score} color="pool" />
+      <ScoreMeter label="Contactability" value={company.contactability_score ?? company.score} color="pool" />
       <div style={{ marginTop: "var(--space-3)" }}>
         <ScoreMeter label="Signal score" value={company.total_signal_score} color="coral" />
       </div>

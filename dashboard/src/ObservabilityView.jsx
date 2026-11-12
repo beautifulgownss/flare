@@ -56,7 +56,7 @@ function ScoreTable({ run }) {
             <span style={{ font: "var(--type-mono)", color: "var(--text-muted)", fontSize: 11 }}>{s.domain}</span>
           </div>
           <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>base <span style={{ color: "var(--pool-blue)" }}>{s.base_score}</span></span>
+            <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>contactability <span style={{ color: "var(--pool-blue)" }}>{s.base_score}</span></span>
             <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>signal <span style={{ color: "var(--coral)" }}>{s.signal_score}</span></span>
             <span style={{ font: "var(--type-small)", color: "var(--text-muted)" }}>composite <span style={{ color: "var(--lawn)", fontWeight: "var(--weight-semibold)" }}>{s.composite_score}</span></span>
             <Badge variant={s.recommendation === "High priority" ? "high" : s.recommendation === "Medium priority" ? "medium" : "low"}>
