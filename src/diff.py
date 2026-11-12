@@ -63,7 +63,7 @@ def compare_runs(run_id_new: str, run_id_old: str) -> list:
 def send_alert_email(alerts: list, run_id_new: str):
     sender = os.getenv("ALERT_EMAIL_SENDER")
     password = os.getenv("ALERT_EMAIL_PASSWORD")
-    recipient = "ALERT_RECIPIENT_REDACTED"
+    recipient = os.getenv("ALERT_EMAIL_RECIPIENT")
 
     if not sender or not password:
         print("  Email credentials not configured — skipping alert email.")
