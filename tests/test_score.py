@@ -1,104 +1,76 @@
+"""Contactability, composite scoring, and tier spread."""
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from score import mock_llm_score
+from campaign import load_campaign
+from score import compute_composite_score, score_account, score_contactability, tier_distribution
+
+CAMPAIGN = load_campaign()
 
 
-def test_ceo_contact_scores_high():
-    company = {
-        "domain": "example.com",
-        "name": "Example Co",
-        "emails_found": 5,
-        "top_contacts": [
-            {"first_name": "Jane", "last_name": "Doe", "position": "CEO"}
-        ]
-    }
-    result = mock_llm_score(company)
-    assert result["score"] == 8
-    assert result["best_contact"]["position"] == "CEO"
-    assert "Executive contact available: CEO" in result["reasons"]
+def contact(position, email="a@acme.test", confidence=None, status=None):
+    return {"first_name": "A", "position": position, "email": email,
+            "confidence": confidence, "verification_status": status}
 
 
-def test_no_contacts_keeps_baseline():
-    company = {
-        "domain": "example.com",
-        "name": "Example Co",
-        "emails_found": 5,
-        "top_contacts": []
-    }
-    result = mock_llm_score(company)
-    assert result["score"] == 5
+def test_no_buyer_scores_zero():
+    result = score_contactability({"emails_found": 50, "top_contacts": [contact("CEO")]}, CAMPAIGN)
+    assert result["contactability_score"] == 0.0
     assert result["best_contact"] is None
 
 
-def test_high_email_coverage_adds_point():
-    company = {
-        "domain": "example.com",
-        "name": "Example Co",
-        "emails_found": 10,
-        "top_contacts": []
-    }
-    result = mock_llm_score(company)
-    assert result["score"] == 6
-    assert "High email coverage (10+)" in result["reasons"]
+def test_email_count_no_longer_inflates_score():
+    few = score_contactability({"emails_found": 1, "top_contacts": [contact("RevOps Manager", confidence=90)]}, CAMPAIGN)
+    many = score_contactability({"emails_found": 500, "top_contacts": [contact("RevOps Manager", confidence=90)]}, CAMPAIGN)
+    assert few["contactability_score"] == many["contactability_score"]
 
 
-def test_zero_emails_penalizes_score():
-    company = {
-        "domain": "example.com",
-        "name": "Example Co",
-        "emails_found": 0,
-        "top_contacts": []
-    }
-    result = mock_llm_score(company)
-    assert result["score"] == 3
-    assert "discoverability" in result["reasons"][0]
+def test_role_priority_and_confidence_change_the_score():
+    top = score_contactability({"top_contacts": [contact("Revenue Operations Lead", confidence=100, status="valid")]}, CAMPAIGN)
+    lower = score_contactability({"top_contacts": [contact("Marketing Operations Manager", confidence=100)]}, CAMPAIGN)
+    unknown = score_contactability({"top_contacts": [contact("Revenue Operations Lead")]}, CAMPAIGN)
+    assert top["contactability_score"] == 10.0
+    assert lower["contactability_score"] < top["contactability_score"]
+    assert unknown["contactability_score"] == 8.0
 
 
-def test_score_caps_at_ten():
-    company = {
-        "domain": "example.com",
-        "name": "Example Co",
-        "emails_found": 10,
-        "top_contacts": [
-            {"first_name": "A", "last_name": "B", "position": "CEO"},
-            {"first_name": "C", "last_name": "D", "position": "VP of Sales"},
-            {"first_name": "E", "last_name": "F", "position": "Head of Marketing"}
-        ]
-    }
-    result = mock_llm_score(company)
-    assert result["score"] == 10
+def test_low_confidence_and_invalid_emails_are_dropped():
+    company = {"top_contacts": [contact("VP Sales", confidence=40), contact("RevOps", status="invalid")]}
+    assert score_contactability(company, CAMPAIGN)["best_contact"] is None
 
 
-def test_best_contact_prefers_highest_tier():
-    company = {
-        "domain": "example.com",
-        "name": "Example Co",
-        "emails_found": 5,
-        "top_contacts": [
-            {"first_name": "A", "last_name": "B", "position": "Manager"},
-            {"first_name": "C", "last_name": "D", "position": "CEO"}
-        ]
-    }
-    result = mock_llm_score(company)
-    assert result["best_contact"]["position"] == "CEO"
+def test_unverified_email_is_discounted():
+    valid = score_contactability({"top_contacts": [contact("RevOps", confidence=90, status="valid")]}, CAMPAIGN)
+    risky = score_contactability({"top_contacts": [contact("RevOps", confidence=90, status="accept_all")]}, CAMPAIGN)
+    assert risky["contactability_score"] < valid["contactability_score"]
 
 
-def test_recommendation_thresholds():
-    high = mock_llm_score({
-        "domain": "a.com",
-        "name": "A",
-        "emails_found": 10,
-        "top_contacts": [{"position": "CEO"}]
-    })
-    assert high["recommendation"] == "High priority"
+def test_contactability_alone_cannot_reach_high_priority():
+    result = score_account({"domain": "acme.test", "top_contacts": [contact("Revenue Operations Manager", confidence=100)]}, None, CAMPAIGN)
+    assert result["composite_score"] == 5.0
+    assert result["recommendation"] == "Medium priority"
+    assert "No account-specific hiring or news signals found" in result["reasons"]
 
-    low = mock_llm_score({
-        "domain": "b.com",
-        "name": "B",
-        "emails_found": 0,
-        "top_contacts": []
-    })
-    assert low["recommendation"] == "Low priority"
+
+def test_score_account_carries_signal_evidence():
+    signals = {"total_signal_score": 6, "job_score": 3, "job_reasons": ["Hiring senior sales leader: VP Sales"],
+               "signal_evidence": [{"label": "Hiring senior sales leader", "title": "VP Sales", "link": "https://acme.test/jobs/1"}]}
+    result = score_account({"domain": "acme.test", "top_contacts": [contact("Revenue Operations Manager", confidence=100)]}, signals, CAMPAIGN)
+    assert result["composite_score"] == 8.0
+    assert result["recommendation"] == "High priority"
+    assert result["final_recommendation"] == "High priority"
+    assert result["signal_evidence"][0]["link"] == "https://acme.test/jobs/1"
+
+
+def test_composite_uses_campaign_weights_and_tiers():
+    scoring = {**CAMPAIGN["scoring"], "weights": {"contactability": 0.2, "timing": 0.8}}
+    out = compute_composite_score(10, 5, scoring)
+    assert out["composite_score"] == 6.0
+    assert out["recommendation"] == "Medium priority"
+
+
+def test_tier_distribution_counts():
+    accounts = [{"final_recommendation": "High priority"}, {"final_recommendation": "Low priority"}, {"final_recommendation": "Low priority"}]
+    assert tier_distribution(accounts)["Low priority"] == 2

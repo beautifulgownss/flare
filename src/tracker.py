@@ -1,11 +1,26 @@
 import json
 import sqlite3
 from datetime import UTC, datetime
+from pathlib import Path
 
 DB_PATH = "data/runs.db"
 
+# Columns added after the first schema. init_db adds them to existing databases.
+MIGRATIONS = {
+    "runs": {"llm_input_tokens": "INTEGER", "llm_output_tokens": "INTEGER", "llm_cost_usd": "REAL"},
+}
+
+
+def _migrate(cursor):
+    for table, columns in MIGRATIONS.items():
+        existing = {row[1] for row in cursor.execute(f"PRAGMA table_info({table})")}
+        for column, kind in columns.items():
+            if column not in existing:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
+
 
 def init_db():
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
@@ -35,11 +50,17 @@ def init_db():
             recommendation TEXT
         )
     """)
+    _migrate(c)
     conn.commit()
     conn.close()
 
 
-def log_run(run_id: str, companies: list, duration: float, notes: str = ""):
+def log_run(run_id: str, companies: list, duration: float, notes: str = "", llm_usage: dict | None = None):
+    """Log a run. `llm_usage` is actual token usage and cost from the model responses."""
+    llm_usage = llm_usage or {}
+    input_tokens = int(llm_usage.get("input_tokens", 0))
+    output_tokens = int(llm_usage.get("output_tokens", 0))
+    llm_cost = round(float(llm_usage.get("cost_usd", 0.0)), 6)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
@@ -50,23 +71,23 @@ def log_run(run_id: str, companies: list, duration: float, notes: str = ""):
         sum(co.get("composite_score", 0) for co in companies) / len(companies), 2
     ) if companies else 0
 
-    # Estimate token cost — mock at $0.002 per company (gpt-4o-mini rate)
-    estimated_cost = round(len(companies) * 0.002, 4)
-
     c.execute("""
         INSERT INTO runs (run_id, timestamp, companies_processed, high_priority,
         medium_priority, low_priority, avg_composite_score, estimated_token_cost,
-        duration_seconds, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        duration_seconds, notes, llm_input_tokens, llm_output_tokens, llm_cost_usd)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         run_id,
         datetime.now(UTC).isoformat(),
         len(companies),
         high, medium, low,
         avg_score,
-        estimated_cost,
+        llm_cost,  # estimated_token_cost column, kept for the dashboard
         round(duration, 2),
-        notes
+        notes,
+        input_tokens,
+        output_tokens,
+        llm_cost,
     ))
 
     for co in companies:
@@ -78,7 +99,7 @@ def log_run(run_id: str, companies: list, duration: float, notes: str = ""):
             run_id,
             co.get("domain"),
             co.get("name"),
-            co.get("score"),
+            co.get("contactability_score", co.get("score")),
             co.get("total_signal_score"),
             co.get("composite_score"),
             co.get("final_recommendation"),

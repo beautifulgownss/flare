@@ -1,14 +1,12 @@
-# GTM Enrichment Pipeline
+# Flare
 
-[![CI](https://github.com/beautifulgownss/gtm-enrichment-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/beautifulgownss/gtm-enrichment-pipeline/actions/workflows/ci.yml)
+[![CI](https://github.com/beautifulgownss/flare/actions/workflows/ci.yml/badge.svg)](https://github.com/beautifulgownss/flare/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![React](https://img.shields.io/badge/dashboard-React-61dafb)
 
-A pipeline that takes a list of company domains and turns it into prioritized, personalized outreach.
+Flare turns a list of company domains into prioritized, evidence-backed outreach drafts.
 
-It enriches each domain with real contact data, scores the account for ICP fit, and writes a personalized opening line for outreach. From there it builds a full 3-step email sequence, and layers in live job and news signals to keep scoring current as conditions change. For every high-priority account, it also generates a personalized pitch page via a live LLM call, grounded in that account's specific enrichment signals. Every account and contact gets synced into a real HubSpot CRM. Each run is logged with cost and latency tracking, and an email alert fires whenever a score shifts. The whole pipeline runs on a schedule in CI.
-
-All of it surfaces in a live React dashboard with sync observability. Every push runs lint, unit tests, an offline demo, and a dashboard build in CI.
+It finds a contact in a configured buyer role, checks for hiring and news signals that can be tied to that specific account, and scores each account on two things: can we reach the right person, and is there a reason to reach out now. Openers and three-step sequences cite the signal they rely on. High-priority accounts get an LLM-generated pitch page that is only allowed to use facts from the offer, the account's signals, and an optional proof file. Accounts and contacts sync into HubSpot. Every run is logged with real token cost, run history persists between scheduled runs, and a Slack alert fires when an account's score moves.
 
 ---
 
@@ -24,72 +22,48 @@ Open `demo/output/index.html` in your browser. It shows four fictional accounts,
 two three-step draft sequences, and two skipped accounts with explanations.
 `demo/output/results.json` contains the same run as structured data.
 
-The demo uses `.example` domains and fictional people. It runs the real configured
-scoring, contact selection, and template generation functions, but never imports
-or invokes enrichment APIs, CRM sync, email alerting, or model integrations.
-Generated files stay under `demo/output`; live pipeline outputs are untouched.
+The demo uses `.example` domains and fictional people. Fixture search results run
+through the same relevance filter, signal scoring, contactability scoring, and
+template generation as a live run, including a deliberate name-collision result
+that the filter drops. It never imports enrichment APIs, CRM sync, alerting, or
+model integrations. Output is deterministic and stays under `demo/output`.
 
-Optional: `python src/demo.py --campaign config/campaign.json --output /tmp/gtm-demo`.
-Use `--input` to supply a different JSON fixture list (the report remains labeled
-as a fictional demo). Outputs are deterministic for the same inputs and config.
+Optional: `python src/demo.py --campaign config/campaign.json --output /tmp/flare-demo`.
+Use `--input` to supply a different JSON fixture list.
 
-To verify the demo:
+## Dashboard
 
-```bash
-python -m unittest discover -s tests -p test_demo.py -v
-```
-
-## Live dashboard
-
-| Account Prioritization | Live Signals |
-|---|---|
-| ![Account Prioritization](docs/screenshots/account-prioritization.png) | ![Live Signals](docs/screenshots/live-signals.png) |
-
-| Email Sequences | HubSpot Sync |
-|---|---|
-| ![Email Sequences](docs/screenshots/email-sequences.png) | ![HubSpot Sync](docs/screenshots/hubspot-sync.png) |
-
-| Run History |
-|---|
-| ![Run History](docs/screenshots/run-history.png) |
+Screenshots are being regenerated from fictional demo data and will be added back
+here. Run the pipeline, then `cd dashboard && npm start` to see the six views:
+Account Prioritization, Live Signals, Email Sequences, Run History, HubSpot Sync,
+and Pitch Pages.
 
 ---
 
 ## The problem
 
-Sales and marketing teams spend 30-45 minutes per account on manual research: finding the right contact, validating their email, assessing fit, writing personalized outreach. Static CRM data goes stale fast. At scale, both problems slow pipeline down.
+Sales and marketing teams spend 30-45 minutes per account on manual research: finding the right contact, checking their email, deciding whether now is a good time, and writing outreach. Static CRM data goes stale fast, and generic "saw you're growing" openers get ignored.
 
-This pipeline automates that research in seconds. Scoring stays dynamic with live signals, and you get an alert when an account worth re-engaging surfaces. Every account and contact lands in the CRM a sales team actually works from, properly linked rather than just dumped in. The whole thing runs itself every Monday morning.
+Flare does that research automatically, keeps only evidence it can tie to the account, and tells you when an account becomes worth re-engaging.
 
 ---
 
-## Outreach implementation status
-
-Contact selection uses the scored account’s enriched `best_contact`. Openers and
-three-step sequences currently use deterministic templates, not live LLM generation.
-They work for unfamiliar domains, never invent contact emails, and skip accounts
-without a supplied contact email. An enriched email is not a deliverability verification.
-All generated copy is marked as a draft requiring human review. The checked-in
-sample outputs predate this change; regenerate them to see the current behavior.
-Live generation and quality evaluation remain future work.
-
 ## What it does
 
-1. **Enriches** a CSV of company domains via the Hunter.io API, returning real contacts, titles, and emails per account
-2. **Scores** each account 1-10 based on configured buyer-role availability and email coverage (not a firmographic ICP-fit model)
-3. **Prioritizes** accounts into High / Medium / Low buckets and selects the best contact per account
-4. **Drafts** a template outreach opener using the enriched buyer contact and configured offer
-5. **Sequences** each account into a 3-step email sequence (intro, follow-up, breakup) personalized to the contact and company context
-6. **Fetches live signals**, real-time job postings and news via the Serper API, and computes a composite score weighted 70% base / 30% signals
-7. **Generates** a personalized pitch page per high-priority account via a live Anthropic API call — headline, signal-grounded value props, and CTA rendered into a self-contained HTML page
-8. **Detects score changes** between runs and sends an HTML email alert when any account shifts by 1.0+ points
-9. **Logs every run** to a SQLite database with timestamp, duration, company scores, and estimated token cost
-10. **Syncs every scored account into HubSpot**, creating or updating Company records with composite score, recommendation, and best contact as fields a rep can actually filter and sort by
-11. **Syncs each account's best contact into HubSpot** too, creating or updating a Contact record and associating it to its parent Company
-12. **Tracks sync health per run**, logging status, action taken, and duration for every HubSpot sync attempt
-13. **Runs on a schedule** via GitHub Actions every Monday at 9am UTC, fully automated
-14. **Visualizes** everything in a React dashboard with six views: Account Prioritization, Email Sequences, Live Signals, Run History, HubSpot Sync, Pitch Pages
-15. **Tests and CI**: 37 offline Python tests plus dashboard tests, run with linting and an offline demo on every push
+1. **Enriches** a CSV of domains via Hunter.io: contacts, titles, email confidence, and verification status. Domains are normalized and deduplicated.
+2. **Fetches timing signals** from Serper (Google): recent job posts and news, limited to a configurable lookback window (default 3 months). A result only counts if it's on the company's domain, on an applicant-tracking board under the company's slug, or names the company's domain. Name-only matches are dropped, because names like "Linear" and "Notion" collide with unrelated results.
+3. **Scores** each account 0-10 on two components:
+   - **Contactability**: the highest-priority configured buyer role with a usable email, adjusted by Hunter confidence and verification. Low-confidence and invalid emails are dropped. Company size and email count don't count.
+   - **Timing**: account-specific job and news signals, each kept with its source link.
+   - The composite is a weighted average (default 50/50) with High / Medium / Low thresholds, all set in `config/campaign.json`. Contactability alone tops out at Medium, so High priority requires a reason to reach out now. The scoring step warns if more than half of the accounts land in High.
+4. **Drafts** an opener using the selected contact and the strongest signal, phrased by category ("hiring senior sales leadership") rather than quoting a search result. With no signal, it makes no timing claim.
+5. **Sequences** each account into a 3-step email sequence (intro, follow-up, breakup).
+6. **Generates pitch pages** for High priority accounts with a live Anthropic call. The prompt forbids invented customers, metrics, or quotes. A proof line is only requested when `context/proof.md` exists, and it's removed from the output otherwise.
+7. **Syncs to HubSpot**: Companies upserted by domain, Contacts by email, with associations.
+8. **Logs every run** to SQLite with duration, per-account scores, and actual token usage and cost from the model responses.
+9. **Detects score changes** against the previous run and alerts in Slack (email fallback) when an account moves 1.0+ points. Alerts never fail the run.
+10. **Runs weekly** in GitHub Actions, carrying run history between runs.
+11. **Tests and CI**: 58 offline Python tests plus dashboard tests, run with linting and the offline demo on every push.
 
 ---
 
@@ -98,63 +72,47 @@ Live generation and quality evaluation remain future work.
 ```
 data/input/companies.csv
         ↓
-src/enrich.py                  → Hunter.io API → data/enriched/companies.json
+src/enrich.py                  → Hunter.io → data/enriched/companies.json
         ↓
-src/score.py                   → ICP scoring logic → data/enriched/scored_companies.json
+src/signals.py                 → Serper (jobs + news), relevance filter → data/signals/signals.json
         ↓
-src/personalize.py             → Configured contact + template opener → data/enriched/personalized_companies.json
+src/score.py                   → contactability + timing → data/scored_final/companies_final.json
         ↓
-src/sequence.py                → Template 3-step email sequences → data/sequences/sequences.json
+src/personalize.py             → evidence-backed opener → data/enriched/personalized_companies.json
         ↓
-src/signals.py                 → Serper API (jobs + news) → data/scored_final/companies_final.json
+src/sequence.py                → 3-step sequences → data/sequences/sequences.json
         ↓
-src/pitch_pages.py             → Anthropic API → pages/{slug}.html
-                                  writes data/pitch_pages_status.json
+src/pitch_pages.py (optional)  → Anthropic → pages/{slug}.html + data/pitch_pages_status.json (token usage)
         ↓
-src/hubspot_sync.py            → HubSpot CRM API → upserts Company records by domain
-                                  writes data/hubspot_sync_status.json
+src/hubspot_sync.py (optional) → HubSpot Companies, upsert by domain
         ↓
-src/hubspot_contacts_sync.py   → HubSpot CRM API → upserts Contact records by email
-                                  associates each Contact to its Company
+src/hubspot_contacts_sync.py (optional) → HubSpot Contacts, upsert by email + association
         ↓
-src/diff.py                    → score change detection + email alert → data/score_diff.json
+src/tracker.py                 → data/runs.db (with real LLM cost) + data/runs_export.json
         ↓
-src/tracker.py                 → SQLite logging → data/runs.db + data/runs_export.json
-        ↓
-src/run_pipeline.py            → orchestrates all steps in one command
-        ↓
-.github/workflows/
-└── pipeline.yml               → scheduled CI on GitHub Actions (every Monday 9am UTC)
+src/diff.py                    → compare with previous run, Slack/email alert → data/score_diff.json
         ↓
 dashboard/                     → React frontend → localhost:3000
 
-src/http_client.py             → shared HTTP session: timeouts + retries on 429/5xx for every API call
-
-.github/workflows/
-└── ci.yml                     → lint, tests, offline demo, dashboard tests + build on every push/PR
-
-tests/                         → pytest suite (scoring, buyer selection, outreach drafts,
-                                  signal scoring, score diffs, orchestration, offline demo)
+src/run_pipeline.py            → runs everything above in order with one command
+src/campaign.py                → buyer roles, exclusions, offer, scoring weights and thresholds
+src/http_client.py             → shared HTTP session: timeouts + retries on 429/5xx
 ```
 
 ---
 
 ## Tech stack
 
-- **Python** for pipeline orchestration
-- **Hunter.io API** for contact and email enrichment
-- **Serper API** for real-time Google search (job postings, news signals)
-- **Deterministic templates** for opener and sequence drafts (always marked as requiring human review)
-- **Anthropic API (claude-sonnet-5)** for live pitch page generation — the pipeline's first real, non-mocked LLM call
-- **HubSpot API** for CRM sync via Service Key auth, custom property schema, domain-based Company upsert, email-based Contact upsert, and Contact-to-Company associations
-- **SQLite** for run history and observability
-- **Gmail SMTP** for HTML email alerts on score threshold crossings
-- **GitHub Actions** for CI on every push and a scheduled weekly pipeline run with artifact uploads
-- **React** for the dashboard, six tabs
-- **pytest** and **ruff** for tests and linting, plus **Jest / React Testing Library** for the dashboard
-- **requests + urllib3 Retry** for timeouts, backoff, and `Retry-After` handling on rate-limited APIs
-- **python-dotenv** for environment variables
-- **pandas** for CSV ingestion
+- **Python** for the pipeline (standard-library `csv`, no pandas)
+- **Hunter.io** for contacts, email confidence, and verification status
+- **Serper** for recent job and news results
+- **Anthropic API** for pitch pages; model and per-token prices set by environment variables
+- **HubSpot API** with Service Key auth, custom properties, upserts, and associations
+- **SQLite** for run history and cost tracking
+- **Slack incoming webhooks** for alerts, with Gmail SMTP as a fallback
+- **GitHub Actions** for CI on every push and the scheduled weekly run
+- **React** dashboard, six tabs
+- **pytest**, **ruff**, and **Jest / React Testing Library**
 
 ---
 
@@ -165,20 +123,23 @@ Edit `config/campaign.json` before running the pipeline:
 - `buyer_roles`: title phrases in priority order (case-insensitive substring matching).
 - `excluded_roles`: title phrases that disqualify a contact, even when a buyer role matches.
 - `offer`: offer name, description, problem, call to action, and sender name.
+- `scoring` (optional): `weights` for contactability and timing (must sum to 1), `tiers` for the High and Medium thresholds, `min_email_confidence` (0-100), and `signal_lookback` (Google's `tbs` value, e.g. `qdr:m3` for 3 months).
+
+To give pitch pages real social proof, add `context/proof.md` with results you can back up. Without it, pitch pages contain no proof claims.
 
 The default is an illustrative GTM workflow service, not a validated commercial offer.
 Use `GTM_CAMPAIGN_CONFIG=/path/to/campaign.json` to select a different client config.
-Invalid configuration fails before scoring. All returned Hunter contacts are considered;
-selection requires a supplied email but does not verify its deliverability. Outreach
-carries the offer snapshot from personalization into sequence generation.
+Invalid configuration fails before scoring. Contacts need an email; emails Hunter marks
+invalid or below `min_email_confidence` are skipped. Outreach carries the offer snapshot
+from personalization into sequence generation.
 
 ## Running the pipeline locally
 
 **1. Clone and set up the environment**
 
 ```bash
-git clone https://github.com/beautifulgownss/gtm-enrichment-pipeline
-cd gtm-enrichment-pipeline
+git clone https://github.com/beautifulgownss/flare
+cd flare
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements-dev.txt   # or: make install
@@ -194,14 +155,10 @@ cp .env.example .env
 
 Fill in your keys:
 
-```
-HUNTER_API_KEY=your_key_here
-ANTHROPIC_API_KEY=your_key_here
-SERPER_API_KEY=your_key_here
-HUBSPOT_SERVICE_KEY=your_key_here
-ALERT_EMAIL_SENDER=your_gmail@gmail.com
-ALERT_EMAIL_PASSWORD=your_16_char_app_password
-```
+See `.env.example` for every variable. Only `HUNTER_API_KEY` and `SERPER_API_KEY` are
+required; pitch pages, HubSpot, and alerts are skipped when their keys are missing.
+Set `ANTHROPIC_INPUT_COST_PER_MTOK` and `ANTHROPIC_OUTPUT_COST_PER_MTOK` to your
+model's current price so the run log reports accurate cost.
 
 **3. Add your target companies**
 
@@ -228,7 +185,7 @@ This creates the `composite_score`, `gtm_recommendation`, `best_contact_email`, 
 python3 src/run_pipeline.py
 ```
 
-This runs every pipeline step in sequence. It syncs accounts and contacts into HubSpot with associations, detects score changes, sends email alerts when thresholds are crossed, logs the run to SQLite, exports run history to JSON, and copies outputs into the dashboard automatically.
+This runs every step in order, logs the run, checks for score changes against the previous run, and copies outputs into the dashboard.
 
 **6. Launch the dashboard**
 
@@ -252,9 +209,9 @@ make dashboard-test   # React tests
 Two GitHub Actions workflows:
 
 - **`ci.yml`** runs on every push and pull request. It lints with ruff, runs the pytest suite, runs the offline demo as a smoke test (the report is uploaded as an artifact), then runs the dashboard tests and production build. It needs no secrets.
-- **`pipeline.yml`** runs the live pipeline every Monday at 9am UTC.
+- **`pipeline.yml`** runs the live pipeline every Monday at 9am UTC. It restores `data/runs.db` from the previous run's `run-history` artifact and saves it again afterward (90-day retention), so score diffs and run history build up across runs.
 
-To trigger manually: **Actions** → **GTM Pipeline** → **Run workflow**.
+To trigger manually: **Actions** → **Flare Pipeline** → **Run workflow**.
 
 Required GitHub secrets:
 
@@ -264,10 +221,14 @@ Required GitHub secrets:
 | `SERPER_API_KEY` | Serper.dev API key |
 | `ANTHROPIC_API_KEY` | Anthropic API key (pitch page generation; step is skipped on failure) |
 | `HUBSPOT_SERVICE_KEY` | HubSpot Service Key (Settings → Integrations → Service Keys) |
-| `ALERT_EMAIL_SENDER` | Gmail address to send alerts from |
-| `ALERT_EMAIL_PASSWORD` | Gmail App Password (16 characters, no spaces) |
+| `SLACK_WEBHOOK_URL` | Slack incoming webhook for score alerts (optional) |
+| `ALERT_EMAIL_SENDER` | Gmail address for fallback email alerts (optional) |
+| `ALERT_EMAIL_PASSWORD` | Gmail App Password (optional) |
+| `ALERT_EMAIL_RECIPIENT` | Where fallback email alerts go (optional) |
 
-Pipeline outputs are uploaded as artifacts on every run and downloadable from the Actions tab.
+Optionally set the `ANTHROPIC_MODEL` repository variable to choose the pitch-page model.
+
+Only run summaries (run export, score diff, sync and pitch status) are uploaded as artifacts, kept 14 days. Enriched contacts, sequences, and pitch pages contain personal data, so they are not uploaded.
 
 ---
 
@@ -292,11 +253,9 @@ Every pipeline run pushes the final scored accounts, and their best contact, int
 
 ---
 
-## Email alerting
+## Score alerts
 
-When any account's composite score shifts by 1.0+ points between runs, the pipeline sends an HTML alert email with a score change table, run ID, and a link back to the dashboard.
-
-Alerts fire from `diff.py`, which exits with code 1 when thresholds are crossed, flagging the run in GitHub Actions.
+After each run is logged, `diff.py` compares composite scores with the previous run. When an account moves 1.0+ points, or a new account appears, it posts to Slack with the old and new score and any tier change. If Slack isn't configured or the post fails, it falls back to an HTML email. Alerts are informational and never fail the run.
 
 ---
 
@@ -309,15 +268,18 @@ make test             # or: python -m pytest
 The suite runs offline in well under a second. No API keys, network, or filesystem fixtures beyond temp dirs.
 
 **What's covered:**
-- **Campaign config**: validation errors, buyer-role priority order, exclusions overriding matches, contacts without emails never selected
-- **Scoring**: legacy seniority tiers, configured buyer-role scoring, email-coverage bonus/penalty, the 10-point cap, recommendation thresholds
-- **Outreach drafts**: openers and sequences use only the enriched contact, skip low-priority or contactless accounts, and never invent emails
-- **Live signals**: keyword tiers, per-source caps, one tier per result, and whole-word matching for acronyms (a regression test for "cross-functional" previously counting as a CRO hire)
-- **Composite scoring**: 70/30 weighting and High/Medium/Low boundaries
-- **Score diffs**: the inclusive ±1.0 alert threshold, new-account alerts, sort order
-- **Orchestration**: required steps abort the run, optional steps don't, missing optional outputs are skipped
-- **HTTP client**: default timeouts and retry policy for rate-limited APIs
-- **Offline demo**: end-to-end run with sockets patched to fail, so any network call breaks the test; output is deterministic
+- **Campaign config**: validation of roles, offer, weights, thresholds, and email-confidence limits
+- **Contactability**: role priority, email confidence, verification, dropped low-confidence and invalid emails, and email count no longer inflating the score
+- **Composite scoring**: configurable weights and tiers, and contactability alone never reaching High
+- **Signal relevance**: the real "Linear Ad Sales jobs in New York" false positive is filtered out, generic careers pages score 0, ATS boards need the company slug, queries contain no hard-coded years
+- **Signal scoring**: keyword tiers, caps, deduplication by link, whole-word matching for acronyms
+- **Outreach drafts**: openers use the signal category rather than the raw headline, make no timing claim without evidence, and never invent emails
+- **Pitch pages**: no proof block or proof line without `context/proof.md`, unsupported proof lines dropped, token cost from real usage
+- **Run history**: real cost logged, schema migrations on older databases
+- **Score diffs and alerts**: the inclusive ±1.0 threshold, new-account alerts, Slack first with email fallback, and alerts never exiting
+- **Orchestration**: signals run before scoring, optional steps run last and never stop the run
+- **HTTP client**: default timeouts and retry policy
+- **Offline demo**: end-to-end with sockets patched to fail; output is deterministic
 - **Dashboard**: renders every tab without crashing on empty data
 
 Scoring and signal logic are pure functions separated from I/O, so they're tested directly instead of through mocked APIs.
@@ -326,29 +288,14 @@ Scoring and signal logic are pure functions separated from I/O, so they're teste
 
 ## Sample output
 
-> These tables come from an earlier live run, before buyer-role scoring and the signal-matching fix. Re-run the pipeline to regenerate them.
+From the offline demo (fictional accounts):
 
-### Account prioritization (static scoring)
-
-| Company | Score | Best Contact | Recommendation |
-|---------|-------|-------------|----------------|
-| Stripe | 10/10 | Kevin Bognar, VP of Sales | High priority |
-| Vercel | 10/10 | Gaspar Garcia, Head of AI Research | High priority |
-| Retool | 10/10 | David Hsu, CEO | High priority |
-| Linear | 9/10 | Casey Bertenthal, Sales Director | High priority |
-| Notion | 5/10 | (none) | Low priority |
-
-### Signal-weighted scoring (composite)
-
-| Company | Base | Signal | Composite | Final |
-|---------|------|--------|-----------|-------|
-| Vercel | 10/10 | 10/10 | 10.0 | High priority |
-| Retool | 10/10 | 7/10 | 9.1 | High priority |
-| Linear | 9/10 | 9/10 | 9.0 | High priority |
-| Stripe | 10/10 | 6/10 | 8.8 | High priority |
-| Notion | 5/10 | 7/10 | 5.6 | Medium priority |
-
-**Key insight:** Notion got deprioritized by static scoring because of low contact discoverability. Live signals caught a $500M ARR announcement, active investor activity, and a new AI agent launch, bumping it up to Medium priority. Static data tells you who a company is. Live signals tell you why now is the right time.
+| Account | Contactability | Timing | Composite | Tier | Why |
+|---------|---------------|--------|-----------|------|-----|
+| Harbor Workflows | 5.4 | 10.0 | 7.7 | High | VP Sales reachable; hiring a VP of Sales, recent Series B |
+| Cedar Metrics | 8.2 | 2.0 | 5.1 | Medium | RevOps Manager reachable; hiring in RevOps. An unrelated "Linear TV" job was filtered out |
+| Lumen Research | 0.0 | 1.0 | 0.5 | Low | Only contact is in an excluded role |
+| Pocket Platform | 0.0 | 0.0 | 0.0 | Low | No contacts found |
 
 ### Email sequences
 
@@ -371,7 +318,7 @@ Every pipeline run is logged automatically:
 | Companies processed | Account count per run |
 | High / Medium / Low | Priority distribution |
 | Avg composite score | Mean signal-weighted score across accounts |
-| Estimated token cost | Placeholder estimate at $0.002/company, not metered usage |
+| LLM tokens and cost | Actual input/output tokens from model responses, priced at the configured rates |
 | Score alerts | Accounts with ±1.0+ composite score change vs prior run |
 
 ### HubSpot sync status
@@ -397,9 +344,11 @@ Every sync attempt is logged automatically:
 
 **Configured buyer roles.** Campaign buyer roles are ordered by priority. A matching contact with an enriched email qualifies; exclusions override matches. No matching contact means outreach is skipped. Scoring measures role availability and email coverage, not firmographic fit.
 
-**Composite scoring weights.** Base enrichment score is weighted 70%, live signals 30%. Contact data is more reliable than search-derived signals, but strong signals can still meaningfully move the needle.
+**Two-part scoring with evidence.** Reaching the right buyer and having a reason to reach out now are scored separately and combined 50/50 by default. The earlier version scored contact availability and email volume, which put 4 of 5 accounts in High priority. Now High requires both, and every timing point links to the result it came from.
 
-**Score change alerting.** `diff.py` compares composite scores between runs and exits with code 1 when any account shifts ±1.0+, flagging the run in GitHub Actions and firing an email alert. Surfaces accounts worth re-engaging without anyone having to watch for it.
+**Relevance before scoring.** A search result counts only if it can be tied to the account's domain. An earlier run counted "Linear Ad Sales jobs in New York" as a hiring signal for Linear and treated a generic careers page as a senior sales hire. Both cases are now regression tests.
+
+**Score change alerting.** `diff.py` runs inside the pipeline after the run is logged and posts to Slack when an account shifts ±1.0+. Run history is persisted between scheduled runs, so there is always a previous run to compare against.
 
 **CRM sync as a non-fatal step.** Both `hubspot_sync.py` and `hubspot_contacts_sync.py` are wired in but never block the rest of the pipeline if they fail. Internal scoring and dashboard data are the source of truth. CRM sync is a downstream consumer of that, not a dependency for it.
 
@@ -409,7 +358,9 @@ Every sync attempt is logged automatically:
 
 **Sync observability as a first-class output.** `hubspot_sync.py` writes a status file on every run, surfaced right in the dashboard. You can see sync health instead of finding out about it when a rep complains a record's missing.
 
-**Reviewable drafts over unverified generation.** Openers and sequences are deterministic templates built only from enriched contact data and the configured offer, flagged `requires_review`. They never invent contacts or company events. LLM generation is held back until a golden eval set exists to measure it.
+**Reviewable drafts over unverified generation.** Openers and sequences are deterministic templates built from the enriched contact, the configured offer, and the strongest account-specific signal, flagged `requires_review`. LLM generation for these is held back until an eval set exists to measure it.
+
+**No invented proof.** The pitch-page prompt only allows facts from the offer, the account's signals, and `context/proof.md`. Without a proof file, the prompt asks for no proof and any proof line the model returns is removed.
 
 **Sequence coherence.** Each follow-up email is aware of the previous step's angle, adding new information instead of restating the opener. Mirrors how a skilled SDR actually runs a sequence.
 
@@ -417,31 +368,17 @@ Every sync attempt is logged automatically:
 
 **Signal-grounded generation.** Every value prop in a pitch page must cite the specific enrichment signal it's built on, enforced directly in the prompt's JSON schema. Keeps the copy tied to real account data instead of generic marketing filler.
 
-**Observable by default.** Every run gets persisted to SQLite with full per-company score breakdowns. Cost and latency tracked from day one, not bolted on after the fact.
+**Observable by default.** Every run is persisted to SQLite with per-account score breakdowns, duration, and token cost calculated from the model's reported usage.
 
-**Testing the logic, not the I/O, first.** The scoring function is deliberately separated from file I/O so it can be unit tested without mocking the filesystem. Tests cover tier-based scoring, best-contact selection under list-order edge cases, email coverage signals, score capping, and recommendation thresholds.
+**Testing the logic, not the I/O, first.** Relevance filtering, signal scoring, and account scoring are pure functions separated from API calls and file I/O, so they're tested directly.
 
 ---
 
 ## Roadmap
 
-- [x] Swap mock LLM responses for live OpenAI/Anthropic API calls (partial: pitch page generation is the first live LLM step; opener and sequence generation use deterministic templates)
-- [ ] Add People Data Labs as a fallback enrichment source for missing firmographics
-- [ ] Add a golden eval set to measure opener and sequence quality across prompt versions
-- [ ] Add Slack alerting alongside email
-- [x] Extend unit test coverage to `signals.py` composite scoring math and `diff.py` threshold detection
-- [x] CI on every push: lint, tests, offline demo smoke test, dashboard build
-- [ ] Add integration tests for the HubSpot sync scripts using a mocked API client
-
----
-
-## Part of a 6-project GTM engineering portfolio
-
-| Project | Description | Status |
-|---------|-------------|--------|
-| 1. Enrichment Pipeline | Domain to contacts to scored accounts to personalized openers | Complete |
-| 2. Outbound Sequence Generator | Enriched accounts to 3-step personalized email sequences | Complete |
-| 3. Lead Scoring with Live Signals | Real-time job postings and news signals to dynamic ICP scoring | Complete |
-| 4. GTM Ops Dashboard | Single-command orchestrator, run history, observability, scheduled CI, email alerting | Complete |
-| 5. HubSpot CRM Sync | Scored accounts and contacts synced into real, associated HubSpot records via Service Key auth, idempotent upsert, sync observability, and a unit-tested scoring core | Complete |
-| 6. Pitch Page Generator | Enriched accounts to personalized, signal-grounded pitch pages via live LLM generation | Complete |
+- [ ] ICP-fit scoring from firmographics, with the evidence behind each point
+- [ ] A labeled eval set for signal relevance and draft quality, run in CI
+- [ ] LLM-written drafts with an approval queue
+- [ ] Hosted demo on fictional data
+- [ ] Integration tests for the HubSpot sync scripts with a mocked API client
+- [ ] Warehouse mode (DuckDB / dbt) as an alternative to CSV input

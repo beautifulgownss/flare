@@ -1,17 +1,18 @@
+"""Compare the last two runs and alert on meaningful score changes (Slack, then email)."""
 import json
 import os
 import smtplib
-import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
 
+from http_client import session
 from tracker import get_run_scores, get_runs
 
 load_dotenv()
 
-DB_PATH = "data/runs.db"
+DIFF_PATH = "data/score_diff.json"
 
 
 def get_last_two_runs() -> tuple:
@@ -60,16 +61,48 @@ def compare_runs(run_id_new: str, run_id_old: str) -> list:
     return sorted(changes, key=lambda x: abs(x.get("delta") or 0), reverse=True)
 
 
+def format_slack_message(alerts: list, run_id_new: str) -> dict:
+    lines = [f"*Flare: {len(alerts)} account score change(s)* (run `{run_id_new}`)"]
+    for a in alerts:
+        if a["type"] == "new_account":
+            lines.append(f"- {a['name']}: new account, score {a['new_score']}")
+        else:
+            sign = "+" if a["delta"] > 0 else ""
+            line = f"- {a['name']}: {a['old_score']} -> {a['new_score']} ({sign}{a['delta']})"
+            if a.get("old_recommendation") != a.get("new_recommendation"):
+                line += f", {a['old_recommendation']} -> {a['new_recommendation']}"
+            lines.append(line)
+    return {"text": "\n".join(lines)}
+
+
+def send_slack_alert(alerts: list, run_id_new: str) -> bool:
+    webhook = os.getenv("SLACK_WEBHOOK_URL")
+    if not webhook:
+        return False
+    response = session.post(webhook, json=format_slack_message(alerts, run_id_new))
+    if response.status_code == 200:
+        print("  Slack alert sent")
+        return True
+    print(f"  Slack alert failed: {response.status_code}")
+    return False
+
+
+def send_alert(alerts: list, run_id_new: str) -> None:
+    """Prefer Slack; fall back to email if Slack isn't configured or fails."""
+    if not send_slack_alert(alerts, run_id_new):
+        send_alert_email(alerts, run_id_new)
+
+
 def send_alert_email(alerts: list, run_id_new: str):
     sender = os.getenv("ALERT_EMAIL_SENDER")
     password = os.getenv("ALERT_EMAIL_PASSWORD")
     recipient = os.getenv("ALERT_EMAIL_RECIPIENT")
 
-    if not sender or not password:
-        print("  Email credentials not configured — skipping alert email.")
+    if not sender or not password or not recipient:
+        print("  No Slack webhook or email alert settings configured; skipping alert.")
         return
 
-    subject = f"GTM Pipeline Alert — {len(alerts)} score change(s) detected"
+    subject = f"Flare Alert — {len(alerts)} score change(s) detected"
 
     rows = ""
     for a in alerts:
@@ -100,7 +133,7 @@ def send_alert_email(alerts: list, run_id_new: str):
     <body style="font-family:Inter,sans-serif;background:#0A0F1E;color:#F0F4FF;padding:2rem;">
         <div style="max-width:600px;margin:0 auto;">
             <p style="font-family:monospace;font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;">
-                GTM Enrichment Pipeline · Score Alert
+                Flare · Score Alert
             </p>
             <h1 style="font-size:22px;font-weight:500;margin:0 0 1rem;">
                 {len(alerts)} score change(s) detected
@@ -123,7 +156,7 @@ def send_alert_email(alerts: list, run_id_new: str):
 
             <p style="margin-top:1.5rem;font-size:13px;color:#64748B;">
                 View full run history in your
-                <a href="http://localhost:3000" style="color:#378ADD;">GTM dashboard</a>.
+                <a href="http://localhost:3000" style="color:#378ADD;">Flare dashboard</a>.
             </p>
         </div>
     </body>
@@ -169,7 +202,7 @@ def print_summary(changes: list, run_id_new: str, run_id_old: str):
                 if c["old_recommendation"] != c["new_recommendation"]:
                     print(f"       Priority: {c['old_recommendation']} → {c['new_recommendation']}")
 
-        send_alert_email(alerts, run_id_new)
+        send_alert(alerts, run_id_new)
 
     minor = [c for c in changes if not c.get("alert")]
     if minor:
@@ -180,15 +213,12 @@ def print_summary(changes: list, run_id_new: str, run_id_old: str):
     print(f"\n  Total changes: {len(changes)} | Alerts: {len(alerts)}")
     print(f"{'='*50}\n")
 
-    if alerts:
-        print("  Score alerts detected — flagging run.")
-        sys.exit(1)
 
-
-def main():
+def check_and_alert() -> dict | None:
+    """Run from run_pipeline.py after the run is logged. Alerts never fail the run."""
     run_id_new, run_id_old = get_last_two_runs()
     if not run_id_new:
-        return
+        return None
 
     changes = compare_runs(run_id_new, run_id_old)
     print_summary(changes, run_id_new, run_id_old)
@@ -199,10 +229,11 @@ def main():
         "changes": changes,
         "alerts": [c for c in changes if c.get("alert")]
     }
-    with open("data/score_diff.json", "w") as f:
+    with open(DIFF_PATH, "w") as f:
         json.dump(output, f, indent=2)
-    print("  Diff saved to data/score_diff.json")
+    print(f"  Diff saved to {DIFF_PATH}")
+    return output
 
 
 if __name__ == "__main__":
-    main()
+    check_and_alert()

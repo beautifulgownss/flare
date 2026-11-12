@@ -1,95 +1,136 @@
+"""Score each account on contactability and timing, then assign a priority tier.
+
+Contactability (0-10): does a configured buyer role have a usable email? Higher
+priority roles and higher Hunter email confidence score higher. Company size
+does not, so large companies with many listed emails no longer max out by default.
+
+Timing (0-10): job and news signals tied to the account (see signals.py).
+
+ICP fit is not modeled yet. It's the next scoring component, and the README says so.
+"""
 import json
+from pathlib import Path
 
 from campaign import load_campaign, select_buyer, validate_campaign
 
+ENRICHED_PATH = "data/enriched/companies.json"
+SIGNALS_PATH = "data/signals/signals.json"
+OUTPUT_PATH = "data/scored_final/companies_final.json"
 
-def mock_llm_score(company: dict, campaign=None) -> dict:
-    """
-    Mimics what an LLM would return when scoring a company.
-    In Phase 2 we'll replace this with a real API call.
-    """
+TOP_ROLE_SCORE = 10.0
+ROLE_STEP = 1.5           # each lower-priority buyer role scores 1.5 less
+MIN_ROLE_SCORE = 4.0
+UNKNOWN_CONFIDENCE = 0.8  # multiplier when the provider gave no confidence
+UNVERIFIED_STATUSES = {"accept_all", "unknown", "webmail", "disposable"}
 
-    # Simple scoring rules based on title signals
-    score = 5  # baseline
-    reasons = []
-    best_contact = None
 
-    for contact in company.get("top_contacts", []):
-        position = (contact.get("position") or "").lower()
+def score_contactability(company: dict, campaign: dict) -> dict:
+    """Return the 0-10 contactability score, the selected buyer, and reasons."""
+    campaign = validate_campaign(campaign)
+    contact, priority = select_buyer(company.get("top_contacts", []), campaign)
+    if contact is None:
+        return {"contactability_score": 0.0, "best_contact": None,
+                "reasons": ["No contact matches a configured buyer role with a usable email"]}
 
-        # High value titles
-        if any(t in position for t in ["ceo", "founder", "president"]):
-            score += 3
-            reasons.append(f"Executive contact available: {contact.get('position')}")
-            best_contact = contact
-        elif any(t in position for t in ["vp", "vice president", "director"]):
-            score += 2
-            reasons.append(f"Senior contact available: {contact.get('position')}")
-            if not best_contact:
-                best_contact = contact
-        elif any(t in position for t in ["head of", "manager", "lead"]):
-            score += 1
-            reasons.append(f"Mid-level contact available: {contact.get('position')}")
-            if not best_contact:
-                best_contact = contact
+    role_score = max(TOP_ROLE_SCORE - ROLE_STEP * priority, MIN_ROLE_SCORE)
+    reasons = [f"Target buyer available: {contact.get('position')} (role priority {priority + 1})"]
 
-    if campaign is not None:
-        validate_campaign(campaign)
-        best_contact = select_buyer(company.get("top_contacts", []), campaign)
-        # Contactability and buyer-role match, not firmographic ICP fit.
-        score = 8 if best_contact else 3
-        reasons = ([f"Target buyer available: {best_contact.get('position')}"]
-                   if best_contact else ["No contact matches configured buyer roles with an email"])
+    confidence = contact.get("confidence")
+    if confidence is None:
+        multiplier = UNKNOWN_CONFIDENCE
+        reasons.append("Email confidence unknown")
+    else:
+        multiplier = 0.5 + confidence / 200  # 70 -> 0.85, 100 -> 1.0
+        reasons.append(f"Email confidence {confidence}/100")
 
-    # emails found signal
-    emails = company.get("emails_found", 0)
-    if emails >= 10:
-        score += 1
-        reasons.append("High email coverage (10+)")
-    elif emails == 0:
-        score -= 2
-        reasons.append("No emails found — low discoverability")
+    status = contact.get("verification_status")
+    if status in UNVERIFIED_STATUSES:
+        multiplier *= 0.9
+        reasons.append(f"Email not verified ({status})")
+    elif status == "valid":
+        reasons.append("Email verified")
 
-    # cap score at 10
-    score = min(score, 10)
+    return {"contactability_score": round(role_score * multiplier, 1),
+            "best_contact": contact, "reasons": reasons}
 
+
+def tier_for(score: float, tiers: dict) -> str:
+    if score >= tiers["high"]:
+        return "High priority"
+    if score >= tiers["medium"]:
+        return "Medium priority"
+    return "Low priority"
+
+
+def compute_composite_score(contactability: float, timing: float, scoring: dict) -> dict:
+    weights = scoring["weights"]
+    composite = round(contactability * weights["contactability"] + timing * weights["timing"], 1)
+    composite = min(composite, 10.0)
+    return {"composite_score": composite, "recommendation": tier_for(composite, scoring["tiers"])}
+
+
+def score_account(company: dict, signals: dict | None, campaign: dict) -> dict:
+    """Combine contactability and timing into the record every later step reads."""
+    contact = score_contactability(company, campaign)
+    signals = signals or {}
+    timing = float(signals.get("total_signal_score", 0))
+    composite = compute_composite_score(contact["contactability_score"], timing, campaign["scoring"])
+    reasons = contact["reasons"] + signals.get("job_reasons", []) + signals.get("news_reasons", [])
+    if not signals.get("signal_evidence"):
+        reasons.append("No account-specific hiring or news signals found")
     return {
-    "scoring_basis": "buyer_role_and_contactability" if campaign else "legacy_seniority",
-    "domain": company.get("domain"),
-    "name": company.get("name"),
-    "score": min(score, 10),
-    "emails_found": company.get("emails_found"),
-    "reasons": reasons,
-    "best_contact": best_contact,
-    "recommendation": "High priority" if score >= 8 else "Medium priority" if score >= 6 else "Low priority"
-}
+        **company,
+        "scoring_basis": "contactability_and_timing",
+        "score": contact["contactability_score"],  # kept for dashboard compatibility
+        "contactability_score": contact["contactability_score"],
+        "best_contact": contact["best_contact"],
+        "job_score": signals.get("job_score", 0),
+        "job_reasons": signals.get("job_reasons", []),
+        "news_score": signals.get("news_score", 0),
+        "news_reasons": signals.get("news_reasons", []),
+        "total_signal_score": timing,
+        "signal_evidence": signals.get("signal_evidence", []),
+        "composite_score": composite["composite_score"],
+        "recommendation": composite["recommendation"],
+        "final_recommendation": composite["recommendation"],
+        "reasons": reasons,
+    }
+
+
+def tier_distribution(accounts: list) -> dict:
+    counts = {"High priority": 0, "Medium priority": 0, "Low priority": 0}
+    for account in accounts:
+        counts[account["final_recommendation"]] += 1
+    return counts
 
 
 def main():
-    # Load enriched companies
-    with open("data/enriched/companies.json") as f:
-        companies = json.load(f)
-
     campaign = load_campaign()
-    results = []
-    for company in companies:
-        print(f"Scoring {company.get('name')}...")
-        scored = mock_llm_score(company, campaign)
-        results.append(scored)
-        print(f"  Score: {scored['score']}/10 — {scored['recommendation']}")
+    with open(ENRICHED_PATH) as f:
+        companies = [c for c in json.load(f) if not c.get("error")]
+    try:
+        with open(SIGNALS_PATH) as f:
+            signals_by_domain = {s["domain"]: s for s in json.load(f)}
+    except FileNotFoundError:
+        print(f"  WARNING: {SIGNALS_PATH} missing; timing scores will be 0")
+        signals_by_domain = {}
 
-    # Sort by score descending
-    results.sort(key=lambda x: x["score"], reverse=True)
+    results = [score_account(c, signals_by_domain.get(c.get("domain")), campaign) for c in companies]
+    results.sort(key=lambda r: r["composite_score"], reverse=True)
 
-    # Save output
-    output_path = "data/enriched/scored_companies.json"
-    with open(output_path, "w") as f:
+    Path(OUTPUT_PATH).parent.mkdir(parents=True, exist_ok=True)
+    with open(OUTPUT_PATH, "w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"\nDone. Scored {len(results)} companies → {output_path}")
-    print("\nPriority order:")
+    print(f"\nScored {len(results)} accounts -> {OUTPUT_PATH}")
     for r in results:
-        print(f"  {r['score']}/10 — {r['name']} ({r['recommendation']})")
+        print(f"  {r['composite_score']}/10  {r['name']}  (contactability {r['contactability_score']}, "
+              f"timing {r['total_signal_score']})  {r['final_recommendation']}")
+    dist = tier_distribution(results)
+    print(f"  Tiers: {dist}")
+    if results and dist["High priority"] / len(results) > 0.5:
+        print("  WARNING: over half the accounts are High priority; tiers may be too loose for this list")
+
 
 if __name__ == "__main__":
     main()

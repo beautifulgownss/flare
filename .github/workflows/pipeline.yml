@@ -1,4 +1,4 @@
-name: GTM Pipeline
+name: Flare Pipeline
 
 on:
   schedule:
@@ -7,9 +7,10 @@ on:
 
 permissions:
   contents: read
+  actions: read   # needed to download the previous run's history artifact
 
 concurrency:
-  group: gtm-pipeline
+  group: flare-pipeline
   cancel-in-progress: false
 
 jobs:
@@ -31,35 +32,51 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Create data directories
-        run: |
-          mkdir -p data/enriched data/sequences data/signals data/scored_final
+      # Runners start empty, so run history is carried between runs as an
+      # artifact. Without this, every run is the "first" run and the score
+      # diff has nothing to compare against.
+      - name: Restore run history
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: pipeline.yml
+          name: run-history
+          path: data/
+          if_no_artifact_found: warn
 
       - name: Run full pipeline
         env:
           HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           HUBSPOT_SERVICE_KEY: ${{ secrets.HUBSPOT_SERVICE_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           ALERT_EMAIL_SENDER: ${{ secrets.ALERT_EMAIL_SENDER }}
           ALERT_EMAIL_PASSWORD: ${{ secrets.ALERT_EMAIL_PASSWORD }}
+          ALERT_EMAIL_RECIPIENT: ${{ secrets.ALERT_EMAIL_RECIPIENT }}
         run: python src/run_pipeline.py
 
-      - name: Check score changes
-        run: python src/diff.py
-        continue-on-error: true
-
-      - name: Upload pipeline outputs
+      - name: Save run history
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pipeline-outputs-${{ github.run_id }}
+          name: run-history
+          path: data/runs.db
+          retention-days: 90
+          overwrite: true
+          if-no-files-found: warn
+
+      # Only summaries are uploaded. Enriched contacts, sequences, and pitch
+      # pages contain personal data and stay on the runner.
+      - name: Upload run summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-summary-${{ github.run_id }}
           path: |
-            data/enriched/
-            data/sequences/
-            data/scored_final/
-            data/score_diff.json
             data/runs_export.json
+            data/score_diff.json
             data/hubspot_sync_status.json
             data/pitch_pages_status.json
-            pages/
+          retention-days: 14
           if-no-files-found: warn
